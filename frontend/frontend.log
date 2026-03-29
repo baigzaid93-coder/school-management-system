@@ -1,0 +1,17 @@
+
+> school-management-frontend@1.0.0 dev
+> node node_modules/vite/bin/vite.js
+
+Port 3000 is in use, trying another one...
+Port 3001 is in use, trying another one...
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m404[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m3002[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.100.8:[1m3002[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.144.1:[1m3002[22m/[39m
+[2m1:07:30 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/context/AuthContext.jsx, /src/pages/auth/ForgotPassword.jsx, /src/pages/LetterHeadSettings.jsx, /src/pages/auth/AuditTrail.jsx, /src/pages/auth/Profile.jsx, /src/pages/auth/ChangePassword.jsx, /src/pages/Users.jsx, /src/pages/Grades.jsx, /src/pages/RolesManagement.jsx, /src/pages/Students.jsx, /src/pages/AdmissionApproval.jsx, /src/pages/TeacherDashboard.jsx, /src/pages/Reports.jsx, /src/pages/RoleBasedDashboard.jsx, /src/pages/BulkUpload.jsx, /src/pages/TeacherAttendance.jsx, /src/pages/Subjects.jsx, /src/pages/Courses.jsx, /src/pages/Teachers.jsx, /src/pages/Timetable.jsx, /src/pages/Expenses.jsx, /src/pages/Attendance.jsx, /src/pages/StudentAdmission.jsx, /src/pages/ClassGrades.jsx, /src/pages/Fees.jsx, /src/pages/Admissions.jsx, /src/pages/Settings.jsx, /src/components/LetterHeadPrint.jsx[22m
+[2m1:07:31 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/AuthContext.jsx[22m Could not Fast Refresh ("useAuth" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m1:07:31 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx, /src/index.css, /src/components/ProtectedRoute.jsx, /src/pages/auth/AuditTrail.jsx, /src/pages/auth/Profile.jsx, /src/pages/auth/ChangePassword.jsx, /src/components/Layout.jsx, /src/pages/SaaSDashboard.jsx, /src/pages/Schools.jsx, /src/pages/auth/Login.jsx, /src/pages/AdmissionApproval.jsx, /src/pages/TeacherDashboard.jsx, /src/pages/RoleBasedDashboard.jsx, /src/pages/TeacherAttendance.jsx, /src/pages/SaaSUsers.jsx, /src/pages/StudentAdmission.jsx, /src/pages/Admissions.jsx[22m
+
+C:\school-management-system\frontend>
