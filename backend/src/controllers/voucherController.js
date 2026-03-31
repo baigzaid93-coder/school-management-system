@@ -1,6 +1,7 @@
 const PDFDocument = require('pdfkit');
 const Expense = require('../models/Expense');
 const School = require('../models/School');
+const LetterHead = require('../models/LetterHead');
 
 const formatCurrency = (amount, currency = 'PKR') => {
   return `${currency} ${(amount || 0).toLocaleString('en-PK')}`;
@@ -34,56 +35,96 @@ exports.generateVoucherPDF = async (req, res) => {
     }
     
     const school = expense.school;
-    const primaryColor = school?.settings?.primaryColor || '#003366';
+    const schoolId = school?._id || school;
+    const letterHead = schoolId ? await LetterHead.findOne({ school: schoolId }) : null;
+    const primaryColor = school?.settings?.primaryColor || '#1e40af';
+    const accentColor = school?.settings?.accentColor || '#3b82f6';
     const currency = school?.settings?.currency || 'PKR';
     
-    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const doc = new PDFDocument({ size: 'A4', margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=Voucher-${expense.voucherNumber}.pdf`);
     doc.pipe(res);
     
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
-    const contentWidth = pageWidth - 80;
+    const contentWidth = pageWidth - 60;
     
-    let y = 30;
+    const drawLetterHead = (startY) => {
+      let y = startY;
+      const leftMargin = 30;
+      const rightMargin = pageWidth - 30;
+      
+      doc.rect(leftMargin, y, contentWidth, 100)
+        .fillAndStroke('#f8fafc', primaryColor);
+      
+      doc.rect(leftMargin, y, 4, 100).fill(primaryColor);
+      
+      const logoData = letterHead?.logo || school?.logo;
+      if (logoData) {
+        try {
+          const imgBuffer = Buffer.from(logoData.split(',')[1] || logoData, 'base64');
+          doc.image(imgBuffer, leftMargin + 15, y + 15, { width: 70, height: 70 });
+        } catch (e) {}
+      }
+      
+      const textStartX = logoData ? leftMargin + 100 : leftMargin + 15;
+      const headerText = letterHead?.headerText || school?.name || 'School Name';
+      
+      doc.fontSize(20).fillColor(primaryColor).font('Helvetica-Bold');
+      doc.text(headerText, textStartX, y + 15, { width: contentWidth - 120 });
+      
+      const taglineText = letterHead?.tagline || school?.tagline || '';
+      if (taglineText) {
+        doc.fontSize(11).fillColor(accentColor).font('Helvetica-Oblique');
+        doc.text(taglineText, textStartX, y + 35, { width: contentWidth - 120 });
+      }
+      
+      const contactParts = [];
+      if (letterHead?.address || school?.address) {
+        contactParts.push(letterHead?.address || school?.address);
+      }
+      if (letterHead?.phone || school?.phone) {
+        contactParts.push(`Ph: ${letterHead?.phone || school?.phone}`);
+      }
+      if (letterHead?.email || school?.email) {
+        contactParts.push(`${letterHead?.email || school?.email}`);
+      }
+      if (letterHead?.website) {
+        contactParts.push(letterHead.website);
+      }
+      
+      if (contactParts.length > 0) {
+        doc.fontSize(9).fillColor('#64748b').font('Helvetica');
+        doc.text(contactParts.join('  •  '), textStartX, y + 55, { width: contentWidth - 120 });
+      }
+      
+      y += 110;
+      
+      doc.moveTo(leftMargin, y).lineTo(rightMargin, y).stroke('#e2e8f0');
+      
+      return y + 15;
+    };
     
-    if (school?.logo) {
-      try {
-        doc.image(Buffer.from(school.logo, 'base64'), 40, y, { width: 60, height: 40 });
-      } catch (e) {}
-    }
+    let y = drawLetterHead(20);
     
-    doc.fontSize(18).fillColor(primaryColor).font('Helvetica-Bold');
-    doc.text(school?.name || 'School Name', school?.logo ? 110 : 40, y + 15);
-    
-    doc.fontSize(10).fillColor('#666666').font('Helvetica');
-    let contactInfo = [];
-    if (school?.address) contactInfo.push(school.address);
-    if (school?.phone) contactInfo.push('Ph: ' + school.phone);
-    if (school?.email) contactInfo.push('Email: ' + school.email);
-    if (school?.tagline) contactInfo.push(school.tagline);
-    doc.text(contactInfo.join(' | ') || '', school?.logo ? 110 : 40, y + 32);
+    doc.rect(30, y, contentWidth, 40).fillAndStroke(primaryColor, primaryColor);
+    doc.fillColor('#ffffff').fontSize(18).font('Helvetica-Bold');
+    doc.text('PAYMENT VOUCHER', 0, y + 10, { align: 'center' });
+    doc.fontSize(11).font('Helvetica');
+    doc.text(`Voucher #: ${expense.voucherNumber}`, 0, y + 26, { align: 'center' });
     
     y += 55;
     
-    doc.rect(40, y, contentWidth, 35).fill(primaryColor);
-    doc.fillColor('#ffffff').fontSize(16).font('Helvetica-Bold');
-    doc.text('PAYMENT VOUCHER', 0, y + 12, { align: 'center' });
-    doc.fontSize(10).font('Helvetica');
-    doc.text(`Voucher #: ${expense.voucherNumber}`, 0, y + 26, { align: 'center' });
-    
-    y += 50;
-    
     doc.fontSize(10).fillColor('#333333');
-    const leftCol = 40;
+    const leftCol = 30;
     const rightCol = pageWidth / 2;
-    const labelWidth = 100;
+    const labelWidth = 110;
     
     const addField = (label, value, x, yPos) => {
-      doc.font('Helvetica-Bold').fontSize(10).fillColor('#555555');
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#64748b');
       doc.text(label + ':', x, yPos);
-      doc.font('Helvetica').fillColor('#000000');
+      doc.font('Helvetica').fillColor('#1e293b');
       doc.text(value || '-', x + labelWidth, yPos);
     };
     
@@ -94,83 +135,99 @@ exports.generateVoucherPDF = async (req, res) => {
       });
     };
     
-    addField('Date', formatDate(expense.date), leftCol, y);
-    addField('Category', expense.category || '-', rightCol, y);
+    doc.rect(30, y - 5, contentWidth, 70).fillAndStroke('#f8fafc', '#e2e8f0');
+    addField('Date', formatDate(expense.date), leftCol + 10, y + 5);
+    addField('Category', expense.category || '-', rightCol, y + 5);
     
     y += 18;
-    addField('Payment Method', expense.paymentMethod || 'Cash', leftCol, y);
-    addField('Reference', expense.reference || '-', rightCol, y);
+    addField('Payment Method', expense.paymentMethod || 'Cash', leftCol + 10, y + 5);
+    addField('Reference', expense.reference || '-', rightCol, y + 5);
     
-    y += 30;
+    y += 80;
     
-    doc.rect(40, y, contentWidth, 60).stroke('#dddddd');
+    doc.rect(30, y, contentWidth, 5).fill(accentColor);
     
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#333333');
-    doc.text('Description:', 50, y + 8);
-    doc.font('Helvetica').fontSize(10).fillColor('#000000');
-    doc.text(expense.description || '-', 50, y + 22, { width: contentWidth - 20, height: 40 });
+    y += 15;
     
-    y += 75;
+    doc.rect(30, y, contentWidth, 65).fillAndStroke('#fff', '#e2e8f0');
+    doc.rect(30, y, 4, 65).fill(accentColor);
     
-    doc.rect(40, y, contentWidth, 40).fill(primaryColor);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(primaryColor);
+    doc.text('Description:', 45, y + 10);
+    doc.font('Helvetica').fontSize(10).fillColor('#334155');
+    doc.text(expense.description || '-', 45, y + 26, { width: contentWidth - 30, height: 40 });
+    
+    y += 80;
+    
+    doc.rect(30, y, contentWidth, 45).fillAndStroke(primaryColor, primaryColor);
     doc.fillColor('#ffffff').fontSize(12).font('Helvetica-Bold');
-    doc.text('Amount:', 50, y + 14);
-    doc.text(formatCurrency(expense.amount, currency), 0, y + 14, { align: 'right', rightMargin: 50 });
+    doc.text('AMOUNT:', 50, y + 16);
+    doc.fontSize(14);
+    doc.text(formatCurrency(expense.amount, currency), 0, y + 14, { align: 'right', rightMargin: 40 });
     
-    y += 50;
+    y += 55;
     
-    doc.fontSize(10).fillColor('#555555');
-    doc.text('Amount in Words:', 40, y);
-    doc.font('Helvetica').fillColor('#333333').fontSize(11);
-    doc.text(numberToWords(expense.amount) + ' ' + currency + ' Only', 40, y + 15);
+    doc.fontSize(10).fillColor('#64748b');
+    doc.text('Amount in Words:', 30, y);
+    doc.font('Helvetica').fillColor('#334155').fontSize(11);
+    doc.text(numberToWords(expense.amount) + ' ' + currency + ' Only', 30, y + 16);
     
-    y += 40;
+    y += 45;
     
-    if (expense.vendor) {
-      doc.fontSize(10).fillColor('#555555');
-      doc.text('Vendor:', 40, y);
-      doc.font('Helvetica').fillColor('#333333');
-      doc.text(expense.vendor, 120, y);
-      y += 20;
-    }
+    const infoBoxY = y;
+    doc.rect(30, infoBoxY, contentWidth, 0).stroke('#f1f5f9');
     
-    if (expense.teacher) {
-      doc.fontSize(10).fillColor('#555555');
-      doc.text('Teacher:', 40, y);
-      doc.font('Helvetica').fillColor('#333333');
-      doc.text(`${expense.teacher.firstName || ''} ${expense.teacher.lastName || ''} ${expense.teacher.employeeId ? `(${expense.teacher.employeeId})` : ''}`, 120, y);
-      y += 20;
-    }
-    
-    if (expense.staff) {
-      doc.fontSize(10).fillColor('#555555');
-      doc.text('Staff:', 40, y);
-      doc.font('Helvetica').fillColor('#333333');
-      doc.text(`${expense.staff.firstName || ''} ${expense.staff.lastName || ''} ${expense.staff.employeeId ? `(${expense.staff.employeeId})` : ''}`, 120, y);
-      y += 20;
+    if (expense.vendor || expense.teacher || expense.staff) {
+      doc.rect(30, infoBoxY, contentWidth / 2 - 5, 45).fillAndStroke('#f8fafc', '#e2e8f0');
+      let infoY = infoBoxY + 10;
+      
+      if (expense.vendor) {
+        doc.fontSize(9).fillColor('#64748b').text('Vendor:', 40, infoY);
+        doc.font('Helvetica').fillColor('#1e293b');
+        doc.text(expense.vendor, 90, infoY);
+        infoY += 15;
+      }
+      
+      if (expense.teacher) {
+        doc.fontSize(9).fillColor('#64748b').text('Teacher:', 40, infoY);
+        doc.font('Helvetica').fillColor('#1e293b');
+        doc.text(`${expense.teacher.firstName || ''} ${expense.teacher.lastName || ''}`, 90, infoY);
+        infoY += 15;
+      }
+      
+      if (expense.staff) {
+        doc.fontSize(9).fillColor('#64748b').text('Staff:', 40, infoY);
+        doc.font('Helvetica').fillColor('#1e293b');
+        doc.text(`${expense.staff.firstName || ''} ${expense.staff.lastName || ''}`, 90, infoY);
+      }
+      
+      y += 50;
     }
     
     if (expense.notes) {
-      doc.fontSize(10).fillColor('#555555');
-      doc.text('Notes:', 40, y);
-      doc.font('Helvetica').fillColor('#333333');
-      doc.text(expense.notes, 120, y, { width: contentWidth - 100 });
-      y += 20;
+      doc.fontSize(9).fillColor('#64748b');
+      doc.text('Notes:', 30, y);
+      doc.font('Helvetica').fillColor('#475569');
+      doc.text(expense.notes, 30, y + 14, { width: contentWidth });
+      y += 35;
     }
     
-    y += 30;
+    y += 20;
     
     const lineY = y + 25;
-    doc.moveTo(40, lineY).lineTo(pageWidth / 2 - 30, lineY).stroke('#333333');
-    doc.moveTo(pageWidth / 2 + 30, lineY).lineTo(pageWidth - 40, lineY).stroke('#333333');
+    doc.moveTo(30, lineY).lineTo(pageWidth / 2 - 20, lineY).stroke('#334155');
+    doc.moveTo(pageWidth / 2 + 20, lineY).lineTo(pageWidth - 30, lineY).stroke('#334155');
     
-    doc.fontSize(9).fillColor('#555555').font('Helvetica');
-    doc.text('Prepared By', 40, lineY + 8, { align: 'center', width: pageWidth / 2 - 70 });
-    doc.text('Approved By', pageWidth / 2 + 30, lineY + 8, { align: 'center', width: pageWidth / 2 - 70 });
+    doc.fontSize(9).fillColor('#64748b').font('Helvetica');
+    doc.text('Prepared By', 30, lineY + 8, { align: 'center', width: pageWidth / 2 - 50 });
+    doc.text('Approved By', pageWidth / 2 + 20, lineY + 8, { align: 'center', width: pageWidth / 2 - 50 });
     
-    doc.fontSize(8).fillColor('#999999');
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 40, pageHeight - 40);
-    doc.text(`Voucher: ${expense.voucherNumber}`, pageWidth - 150, pageHeight - 40);
+    y = lineY + 35;
+    doc.moveTo(30, y).lineTo(pageWidth - 30, y).stroke('#e2e8f0');
+    
+    doc.fontSize(8).fillColor('#94a3b8');
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 30, pageHeight - 35);
+    doc.text(`Voucher: ${expense.voucherNumber}`, pageWidth - 130, pageHeight - 35);
     
     doc.end();
   } catch (error) {
