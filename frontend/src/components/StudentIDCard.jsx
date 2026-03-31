@@ -75,7 +75,7 @@ const StudentIDCard = ({ student, onClose }) => {
       });
 
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('l', 'mm', [86, 54]);
+      const pdf = new jsPDF('p', 'mm', [86, 54]);
       
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -143,57 +143,44 @@ const StudentIDCard = ({ student, onClose }) => {
         </div>
 
         <div className="id-card-wrapper">
-          {/* Front Side */}
+          {/* Front Side - Vertical */}
           <div className={`id-card-side ${showBack ? 'hidden' : 'active'}`}>
-            <div id="id-card-front" className="id-card horizontal-card">
-              <div className="card-left">
-                <div className="header-section">
-                  <div className="logo-area">
-                    {letterHead?.logo ? (
-                      <img src={letterHead.logo} alt="School Logo" className="school-logo" />
-                    ) : (
-                      <div className="logo-placeholder" style={{ backgroundColor: primaryColor }}>
-                        <span>{schoolName.charAt(0)}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="school-text">
-                    <h1 className="school-name" style={{ color: primaryColor }}>{schoolName}</h1>
+            <div id="id-card-front" className="id-card vertical-card">
+              <div className="vertical-header" style={{ backgroundColor: primaryColor }}>
+                <div className="vertical-school-info">
+                  {letterHead?.logo && (
+                    <img src={letterHead.logo} alt="Logo" className="vertical-logo" />
+                  )}
+                  <div>
+                    <h1 className="vertical-school-name">{schoolName}</h1>
                     {letterHead?.tagline && (
-                      <p className="school-tagline" style={{ color: accentColor }}>{letterHead.tagline}</p>
+                      <p className="vertical-tagline">{letterHead.tagline}</p>
                     )}
                   </div>
                 </div>
-                
-                <div className="card-title" style={{ backgroundColor: primaryColor }}>Student Identity Card</div>
-                
-                <div className="photo-section">
-                  <div className="photo-frame">
+              </div>
+
+              <div className="vertical-card-body">
+                <div className="vertical-photo-section">
+                  <div className="vertical-photo-frame">
                     {student?.photo ? (
                       <img src={student.photo} alt="Student" className="student-photo" />
                     ) : (
-                      <div className="photo-placeholder" style={{ backgroundColor: primaryColor }}>
+                      <div className="vertical-photo-placeholder" style={{ backgroundColor: primaryColor }}>
                         <span>{student?.firstName?.charAt(0) || 'S'}</span>
                       </div>
                     )}
                   </div>
-                  <div className="qr-section">
-                    {qrCodeUrl ? (
-                      <img src={qrCodeUrl} alt="QR Code" className="qr-code" />
-                    ) : (
-                      <div className="qr-placeholder">QR</div>
-                    )}
-                  </div>
+                  {qrCodeUrl && (
+                    <img src={qrCodeUrl} alt="QR" className="vertical-qr" />
+                  )}
                 </div>
-                
-                <div className="signature-section">
-                  <div className="signature-line"></div>
-                  <span className="signature-label">Principal</span>
-                </div>
-              </div>
 
-              <div className="card-right">
-                <div className="info-section">
+                <div className="vertical-title" style={{ backgroundColor: accentColor }}>
+                  Student Identity Card
+                </div>
+
+                <div className="vertical-info">
                   <div className="info-row">
                     <span className="label">Student Name</span>
                     <span className="value">{student?.firstName} {student?.lastName}</span>
@@ -204,7 +191,7 @@ const StudentIDCard = ({ student, onClose }) => {
                   </div>
                   <div className="info-row">
                     <span className="label">Student ID</span>
-                    <span className="value id-highlight">{student?.studentId}</span>
+                    <span className="value">{student?.studentId}</span>
                   </div>
                   <div className="info-row">
                     <span className="label">Class</span>
@@ -218,94 +205,60 @@ const StudentIDCard = ({ student, onClose }) => {
                     <span className="label">Roll No</span>
                     <span className="value">{student?.rollNo || '-'}</span>
                   </div>
-                </div>
-
-                <div className="info-secondary">
-                  <div className="info-item">
-                    <span className="label-sm">Date of Birth</span>
-                    <span className="value-sm">{formatDate(student?.dateOfBirth)}</span>
+                  <div className="info-row">
+                    <span className="label">DOB</span>
+                    <span className="value">{formatDate(student?.dateOfBirth)}</span>
                   </div>
-                  <div className="info-item">
-                    <span className="label-sm">Blood Group</span>
-                    <span className="value-sm">{student?.bloodGroup || '-'}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="label-sm">Valid Till</span>
-                    <span className="value-sm">{getValidTill()}</span>
+                  <div className="info-row">
+                    <span className="label">Blood Group</span>
+                    <span className="value">{student?.bloodGroup || '-'}</span>
                   </div>
                 </div>
 
-                <div className="barcode-section">
-                  <div className="barcode">{generateBarcode()}</div>
-                  <span className="barcode-number">{barcodeValue}</span>
+                <div className="vertical-footer">
+                  <div className="vertical-barcode">
+                    <div className="barcode">{generateBarcode()}</div>
+                    <span className="barcode-number">{barcodeValue}</span>
+                  </div>
+                  <div className="validity">
+                    Valid Till: {getValidTill()}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Back Side */}
+          {/* Back Side - Vertical */}
           <div className={`id-card-side ${!showBack ? 'hidden' : 'active'}`}>
-            <div id="id-card-back" className="id-card horizontal-card back-card">
-              <div className="back-header" style={{ backgroundColor: primaryColor }}>
-                <h2 className="back-school-name">{schoolName}</h2>
+            <div id="id-card-back" className="id-card vertical-card">
+              <div className="vertical-back-header" style={{ backgroundColor: primaryColor }}>
+                <h2>{schoolName}</h2>
               </div>
-
-              <div className="back-content">
+              <div className="vertical-back-body">
                 <div className="back-section">
-                  <h3 className="section-title" style={{ color: primaryColor }}>Contact Information</h3>
-                  <div className="contact-list">
-                    {letterHead?.address && (
-                      <div className="contact-item">
-                        <span className="icon">📍</span>
-                        <span>{letterHead.address}</span>
-                      </div>
-                    )}
-                    {letterHead?.phone && (
-                      <div className="contact-item">
-                        <span className="icon">📞</span>
-                        <span>{letterHead.phone}</span>
-                      </div>
-                    )}
-                    {letterHead?.email && (
-                      <div className="contact-item">
-                        <span className="icon">✉️</span>
-                        <span>{letterHead.email}</span>
-                      </div>
-                    )}
-                    {letterHead?.website && (
-                      <div className="contact-item">
-                        <span className="icon">🌐</span>
-                        <span>{letterHead.website}</span>
-                      </div>
-                    )}
-                  </div>
+                  <h3 style={{ color: primaryColor }}>Contact Information</h3>
+                  {letterHead?.address && <p>📍 {letterHead.address}</p>}
+                  {letterHead?.phone && <p>📞 {letterHead.phone}</p>}
+                  {letterHead?.email && <p>✉️ {letterHead.email}</p>}
+                  {letterHead?.website && <p>🌐 {letterHead.website}</p>}
                 </div>
 
                 <div className="back-section">
-                  <h3 className="section-title" style={{ color: primaryColor }}>Academic Info</h3>
+                  <h3 style={{ color: primaryColor }}>Academic Info</h3>
                   <div className="info-grid">
-                    <div className="grid-item">
-                      <span className="label-sm">Admission Date</span>
-                      <span className="value-sm">{formatDate(student?.admissionDate)}</span>
-                    </div>
-                    <div className="grid-item">
-                      <span className="label-sm">Academic Year</span>
-                      <span className="value-sm">{new Date().getFullYear()}-{new Date().getFullYear() + 1}</span>
-                    </div>
+                    <div><span>Admission Date:</span> {formatDate(student?.admissionDate)}</div>
+                    <div><span>Academic Year:</span> {new Date().getFullYear()}-{new Date().getFullYear() + 1}</div>
                   </div>
                 </div>
 
                 <div className="if-found-box" style={{ borderColor: primaryColor }}>
                   <h3 style={{ color: primaryColor }}>⚠️ IF FOUND</h3>
-                  <p>Please return this card to the school or contact us. This card is the property of {schoolName}.</p>
+                  <p>Please return this card to the school. This card is the property of {schoolName}.</p>
                 </div>
               </div>
-
-              <div className="back-footer">
-                <div className="signature-section">
-                  <div className="signature-line"></div>
-                  <span className="signature-label">Authorized Signature</span>
-                </div>
+              <div className="vertical-back-footer">
+                <div className="signature-line"></div>
+                <span>Principal Signature</span>
               </div>
             </div>
           </div>
