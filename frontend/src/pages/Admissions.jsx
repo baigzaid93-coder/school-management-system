@@ -590,21 +590,21 @@ function Admissions() {
                       </button>
                       {(hasPermission('admission:write') || hasPermission('*')) && (
                         <>
+                          {inquiry.applicationStatus !== 'enrolled' && inquiry.applicationStatus !== 'cancelled' && inquiry.applicationStatus !== 'rejected' && (
+                            <button
+                              onClick={() => handleEditInquiry(inquiry)}
+                              className="flex-1 lg:flex-none px-4 py-2 bg-white border rounded-lg hover:bg-green-50 text-green-600 font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Edit size={16} /> Edit
+                            </button>
+                          )}
                           {inquiry.applicationStatus === 'inquiry' && (
-                            <>
-                              <button
-                                onClick={() => handleEditInquiry(inquiry)}
-                                className="flex-1 lg:flex-none px-4 py-2 bg-white border rounded-lg hover:bg-green-50 text-green-600 font-medium text-sm transition-colors flex items-center justify-center gap-2"
-                              >
-                                <Edit size={16} /> Edit
-                              </button>
-                              <button
-                                onClick={() => handleSubmitForApproval(inquiry._id)}
-                                className="flex-1 lg:flex-none px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm transition-colors flex items-center justify-center gap-2"
-                              >
-                                <Send size={16} /> Submit for Approval
-                              </button>
-                            </>
+                            <button
+                              onClick={() => handleSubmitForApproval(inquiry._id)}
+                              className="flex-1 lg:flex-none px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Send size={16} /> Submit for Approval
+                            </button>
                           )}
                           {inquiry.applicationStatus === 'principal-pending' && hasPermission('admission:approve') && (
                             <>
