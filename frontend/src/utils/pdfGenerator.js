@@ -586,46 +586,107 @@ export const generateFeeVoucherPDF = async (studentData, fees) => {
 };
 
 export const generateStudentCard = (studentData) => {
-  const doc = new jsPDF({ unit: 'mm', format: [86, 54] });
+  const doc = new jsPDF({ unit: 'mm', format: 'a7', orientation: 'portrait' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  const schoolName = localStorage.getItem('schoolName') || 'School Management System';
+  const schoolAddress = localStorage.getItem('schoolAddress') || '';
+  const schoolPhone = localStorage.getItem('schoolPhone') || '';
   
   doc.setFillColor(0, 51, 102);
-  doc.rect(0, 0, 86, 54, 'F');
+  doc.rect(0, 0, pageWidth, 25, 'F');
   
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(8);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('SCHOOL ID CARD', 43, 8, { align: 'center' });
+  doc.text(schoolName.toUpperCase(), pageWidth / 2, 10, { align: 'center' });
+  
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  if (schoolAddress) doc.text(schoolAddress, pageWidth / 2, 16, { align: 'center' });
+  if (schoolPhone) doc.text(schoolPhone, pageWidth / 2, 21, { align: 'center' });
+  
+  doc.setTextColor(0, 51, 102);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('STUDENT ID CARD', pageWidth / 2, 32, { align: 'center' });
+  
+  const photo = studentData.photo || studentData.admissionForm?.photo;
+  const photoSize = 30;
+  const photoX = (pageWidth - photoSize) / 2;
+  const photoY = 38;
+  
+  if (photo) {
+    try {
+      doc.addImage(photo, 'JPEG', photoX, photoY, photoSize, photoSize);
+      doc.setDrawColor(0, 51, 102);
+      doc.setLineWidth(0.5);
+      doc.rect(photoX, photoY, photoSize, photoSize);
+    } catch (e) {
+      doc.setFillColor(240, 240, 240);
+      doc.rect(photoX, photoY, photoSize, photoSize, 'F');
+      doc.setFontSize(20);
+      doc.setTextColor(150, 150, 150);
+      doc.text('PHOTO', photoX + photoSize/2, photoY + photoSize/2 + 5, { align: 'center' });
+    }
+  } else {
+    doc.setFillColor(240, 240, 240);
+    doc.rect(photoX, photoY, photoSize, photoSize, 'F');
+    doc.setFontSize(20);
+    doc.setTextColor(150, 150, 150);
+    doc.text('PHOTO', photoX + photoSize/2, photoY + photoSize/2 + 5, { align: 'center' });
+  }
+  
+  let y = photoY + photoSize + 8;
+  doc.setTextColor(0, 0, 0);
+  
+  const drawField = (label, value, x, rowY) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text(label + ':', x, rowY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(value || '-', x + 22, rowY);
+  };
+  
+  const fullName = `${studentData.firstName || ''} ${studentData.lastName || ''}`.trim();
+  drawField('Name', fullName, 10, y);
+  y += 7;
+  
+  drawField('Student ID', studentData.studentId || '-', 10, y);
+  y += 7;
+  
+  drawField('Class', studentData.classGrade?.name || studentData.class?.name || '-', 10, y);
+  y += 7;
+  
+  drawField('Section', studentData.section?.name || '-', 10, y);
+  y += 7;
+  
+  drawField('Roll No', studentData.rollNo || '-', 10, y);
+  y += 7;
+  
+  drawField('Gender', studentData.gender || '-', 10, y);
+  y += 7;
+  
+  drawField('DOB', studentData.dateOfBirth ? new Date(studentData.dateOfBirth).toLocaleDateString() : '-', 10, y);
+  y += 7;
+  
+  drawField('Father', studentData.parentName || '-', 10, y);
+  y += 7;
+  
+  drawField('Phone', studentData.phone || studentData.parentPhone || '-', 10, y);
+  y += 7;
+  
+  doc.setDrawColor(0, 51, 102);
+  doc.setLineWidth(0.3);
+  doc.line(10, y + 2, pageWidth - 10, y + 2);
   
   doc.setFontSize(6);
-  doc.setFont('helvetica', 'normal');
-  doc.text('School Management System', 43, 13, { align: 'center' });
+  doc.setTextColor(100, 100, 100);
+  doc.text('This is a computer generated card. For queries contact school administration.', pageWidth / 2, y + 8, { align: 'center' });
   
-  doc.setFillColor(255, 255, 255);
-  doc.rect(5, 16, 76, 33, 'F');
-  
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Student:', 8, 23);
-  doc.setFont('helvetica', 'normal');
-  doc.text(studentData.firstName + ' ' + studentData.lastName, 25, 23);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('ID:', 8, 29);
-  doc.setFont('helvetica', 'normal');
-  doc.text(studentData.studentId || '-', 25, 29);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('Class:', 8, 35);
-  doc.setFont('helvetica', 'normal');
-  doc.text(studentData.class?.name || '-', 25, 35);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('Phone:', 8, 41);
-  doc.setFont('helvetica', 'normal');
-  doc.text(studentData.phone || '-', 25, 41);
-  
-  doc.save(`ID_Card_${studentData.studentId}.pdf`);
+  doc.save(`ID_Card_${studentData.studentId || 'student'}.pdf`);
 };
 
 export const generateSOAPDF = async (studentData, fees) => {
@@ -1227,4 +1288,210 @@ export const generateFamilyChallanPDF = async (familyData) => {
   
   const filename = `Family_Challan_${familyNumber || 'Unknown'}_${voucherNo}.pdf`;
   doc.save(filename);
+};
+
+export const generateBulkFeeVouchersPDF = async (feesData) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  const letterHead = await getLetterHead();
+  
+  for (let i = 0; i < feesData.length; i++) {
+    const feeRecord = feesData[i];
+    const { student, fees } = feeRecord;
+    
+    if (i > 0) {
+      doc.addPage();
+    }
+    
+    let y = drawLetterHead(doc, letterHead, 'FEE VOUCHER');
+    y += 5;
+    
+    const voucherNo = fees && fees.length > 0 && fees[0]?.voucherNumber 
+      ? fees[0].voucherNumber 
+      : `FV-${Date.now().toString().slice(-8)}`;
+    const issueDate = fees && fees.length > 0 && fees[0]?.createdAt 
+      ? new Date(fees[0].createdAt).toLocaleDateString() 
+      : new Date().toLocaleDateString();
+    const dueDate = fees && fees.length > 0 && fees[0]?.dueDate 
+      ? new Date(fees[0].dueDate).toLocaleDateString() 
+      : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString();
+    
+    doc.setFillColor(240, 240, 240);
+    doc.rect(15, y, pageWidth - 30, 25, 'F');
+    y += 8;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Voucher No:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(voucherNo, 45, y);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text('Issue Date:', 110, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(issueDate, 135, y);
+    
+    y += 7;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Due Date:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(dueDate, 45, y);
+    
+    y += 10;
+    
+    const studentName = student?.fullName || `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || '-';
+    const studentId = student?.studentId || '-';
+    const classGrade = student?.classGrade?.name || student?.classGrade || '-';
+    const fatherName = student?.fatherName || student?.parentName || '-';
+    const contactNo = student?.phone || student?.parentPhone || '-';
+    const familyNumber = student?.familyNumber || '';
+    
+    doc.setFillColor(0, 51, 102);
+    doc.rect(15, y, pageWidth - 30, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('STUDENT INFORMATION', 20, y + 5.5);
+    y += 12;
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text('Name:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(studentName.substring(0, 40), 38, y);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text('ID:', 110, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(studentId, 122, y);
+    
+    y += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Class:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(classGrade.substring(0, 30), 38, y);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text('Father:', 80, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(fatherName.substring(0, 30), 105, y);
+    
+    y += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Contact:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(contactNo.substring(0, 20), 38, y);
+    
+    if (familyNumber) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Family #:', 80, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(familyNumber, 108, y);
+    }
+    
+    y += 10;
+    
+    doc.setFillColor(0, 51, 102);
+    doc.rect(15, y, pageWidth - 30, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FEE DETAILS', 20, y + 5.5);
+    y += 12;
+    
+    const feeHeads = fees && fees.length > 0 ? fees : [
+      { feeType: 'Tuition Fee', amount: 5000 }
+    ];
+    
+    const tableData = feeHeads.map((fee, idx) => [
+      idx + 1,
+      fee.feeType || fee.description || `Fee`,
+      new Date(fee.dueDate).toLocaleDateString(),
+      `PKR ${formatCurrency(fee.amount)}`
+    ]);
+    
+    const totalAmount = feeHeads.reduce((sum, f) => sum + (f.amount || 0), 0);
+    const totalPaid = feeHeads.reduce((sum, f) => sum + (f.paidAmount || 0), 0);
+    const totalBalance = totalAmount - totalPaid;
+    
+    doc.autoTable({
+      startY: y,
+      head: [['#', 'Description', 'Due Date', 'Amount (PKR)']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [0, 51, 102], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 9 },
+      styles: { fontSize: 9, cellPadding: 4 },
+      columnStyles: {
+        0: { cellWidth: 12, halign: 'center' },
+        1: { cellWidth: 80 },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 35, halign: 'right' }
+      },
+      margin: { left: 15, right: 15 }
+    });
+    
+    y = doc.lastAutoTable.finalY + 5;
+    
+    doc.setFillColor(0, 51, 102);
+    doc.rect(15, y, pageWidth - 30, 10, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL PAYABLE', 20, y + 7);
+    doc.text(`PKR ${formatCurrency(totalBalance || totalAmount)}/-`, pageWidth - 20, y + 7, { align: 'right' });
+    
+    y += 14;
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Amount in Words: ${numberToWords(totalBalance || totalAmount)} Rupees Only`, 15, y);
+    
+    y += 10;
+    
+    doc.setFillColor(255, 250, 230);
+    doc.rect(15, y, pageWidth - 30, 25, 'F');
+    doc.setDrawColor(200, 180, 100);
+    doc.setLineWidth(0.5);
+    doc.rect(15, y, pageWidth - 30, 25, 'S');
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 51, 102);
+    doc.text('Payment Instructions:', 20, y + 7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    const instructions = [
+      '1. Please pay the fee before the due date to avoid late charges.',
+      '2. Keep this voucher safe for your records.',
+      '3. Payment can be made via cash, bank draft, or online transfer.'
+    ];
+    instructions.forEach((text, idx) => {
+      doc.text(text, 20, y + 13 + (idx * 4));
+    });
+    
+    y += 30;
+    
+    doc.setDrawColor(100, 100, 100);
+    doc.setLineWidth(0.3);
+    
+    doc.line(20, y, 70, y);
+    doc.text('Receiver', 35, y + 5);
+    
+    doc.line(90, y, 140, y);
+    doc.text('Authorized Signatory', 100, y + 5);
+    
+    doc.line(160, y, 190, y);
+    doc.text('Seal', 172, y + 5);
+    
+    doc.setFontSize(7);
+    doc.setTextColor(128);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 15, pageHeight - 8);
+    doc.text(`Page ${i + 1} of ${feesData.length}`, pageWidth - 15, pageHeight - 8, { align: 'right' });
+  }
+  
+  doc.save(`Bulk_Fee_Vouchers_${new Date().toISOString().split('T')[0]}.pdf`);
 };
