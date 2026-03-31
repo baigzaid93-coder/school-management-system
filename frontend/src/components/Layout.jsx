@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import SubscriptionBlocked from '../pages/SubscriptionBlocked';
 import {
   LayoutDashboard,
   Users,
@@ -33,7 +34,9 @@ import {
   School,
   Plus,
   Search,
-  Upload
+  Upload,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react';
 
 const saasNavSections = [
@@ -52,11 +55,17 @@ const saasNavSections = [
     ]
   },
   {
+    title: 'Billing',
+    items: [
+      { path: '/saas/billing', label: 'Invoices', icon: FileText },
+      { path: '/saas/revenue', label: 'Revenue', icon: TrendingUp },
+    ]
+  },
+  {
     title: 'SaaS Management',
     items: [
       { path: '/saas/users', label: 'SaaS Users', icon: UserCog },
       { path: '/saas/roles', label: 'Roles & Permissions', icon: Shield },
-      { path: '/saas/revenue', label: 'Revenue', icon: TrendingUp },
       { path: '/saas/analytics', label: 'Analytics', icon: BarChart3 },
     ]
   },
@@ -88,7 +97,12 @@ const schoolNavSections = [
     items: [
       { path: '/admissions', label: 'Admissions', icon: FileText, permission: 'admission:view', badge: 'pending' },
       { path: '/students', label: 'Students', icon: Users, permission: 'student:view' },
-      { path: '/bulk-upload', label: 'Bulk Upload', icon: Upload, permission: 'admission:write' },
+    ]
+  },
+  {
+    title: 'Approvals',
+    items: [
+      { path: '/approvals', label: 'All Approvals', icon: CheckCircle, permission: 'settings:edit', badge: 'approvals' },
     ]
   },
   {
@@ -115,6 +129,7 @@ const schoolNavSections = [
       { path: '/teacher-attendance', label: 'Teacher Attendance', icon: Users, permission: 'attendance:view' },
       { path: '/grades', label: 'Grades', icon: ClipboardCheck, permission: 'grade:view' },
       { path: '/exams', label: 'Examinations', icon: FileText, permission: 'grade:view' },
+      { path: '/discipline', label: 'Discipline', icon: AlertTriangle, permission: 'settings:view' },
     ]
   },
   {
@@ -135,12 +150,12 @@ const schoolNavSections = [
     title: 'Reports',
     items: [
       { path: '/reports', label: 'All Reports', icon: BarChart3 },
+      { path: '/custom-reports', label: 'Custom Reports', icon: FileText },
     ]
   },
   {
     title: 'Administration',
     items: [
-      { path: '/schools', label: 'Schools', icon: Building2, permission: '*' },
       { path: '/roles', label: 'Roles & Permissions', icon: Shield, permission: 'settings:edit' },
       { path: '/settings', label: 'General Settings', icon: Settings, permission: 'settings:view' },
       { path: '/letter-head', label: 'Letter Head', icon: FileText, permission: 'settings:view' },
@@ -158,55 +173,64 @@ function Layout() {
   const [schoolSearch, setSchoolSearch] = useState('');
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [approvalCount, setApprovalCount] = useState(0);
+  const [subscriptionBlocked, setSubscriptionBlocked] = useState(false);
+  const [blockReason, setBlockReason] = useState(null);
+  const [schoolLogo, setSchoolLogo] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, currentSchool, loading, logout, hasPermission, switchSchool, clearSchool } = useAuth();
   const userMenuRef = useRef(null);
 
   const isSuperAdmin = user?.isSuperAdmin || user?.role?.code === 'SUPER_ADMIN';
-  const savedSchoolId = localStorage.getItem('currentSchoolId');
-  const isSaaSMode = isSuperAdmin && !currentSchool && !savedSchoolId;
+  const currentSchoolId = localStorage.getItem('currentSchoolId');
+  const isSaaSMode = isSuperAdmin && !currentSchoolId;
+  const inSchoolMode = !!currentSchoolId;
 
   useEffect(() => {
     if (!loading && user) {
-      if (!isSuperAdmin) {
-        setInitialLoadComplete(true);
-      } else if (savedSchoolId || currentSchool) {
-        setInitialLoadComplete(true);
-      } else {
-        setInitialLoadComplete(true);
-      }
+      setInitialLoadComplete(true);
     }
-  }, [loading, user, currentSchool, isSuperAdmin, savedSchoolId]);
+  }, [loading, user]);
+
+  useEffect(() => {
+    const fetchSchoolLogo = async () => {
+      if (isSaaSMode || !currentSchoolId) {
+        setSchoolLogo(null);
+        return;
+      }
+      try {
+        const token = localStorage.getItem('accessToken');
+        const response = await fetch('/api/letter-head', {
+          headers: { Authorization: `Bearer ${token}`, 'x-school-id': currentSchoolId }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.logo) {
+            setSchoolLogo(data.logo);
+          } else if (currentSchool?.logo) {
+            setSchoolLogo(currentSchool.logo);
+          } else {
+            setSchoolLogo(null);
+          }
+        } else {
+          setSchoolLogo(currentSchool?.logo || null);
+        }
+      } catch (err) {
+        setSchoolLogo(currentSchool?.logo || null);
+      }
+    };
+    fetchSchoolLogo();
+  }, [isSaaSMode, currentSchoolId, currentSchool]);
 
   useEffect(() => {
     loadSchools();
   }, []);
 
-  useEffect(() => {
-    if (isSuperAdmin && savedSchoolId && !currentSchool && !loading && user) {
-      const loadCurrentSchool = async () => {
-        try {
-          const token = localStorage.getItem('accessToken');
-          const response = await fetch(`http://localhost:5000/api/schools/${savedSchoolId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (response.ok) {
-            const school = await response.json();
-            switchSchool(school);
-          }
-        } catch (err) {
-          console.error('Failed to load school:', err);
-        }
-      };
-      loadCurrentSchool();
-    }
-  }, [isSuperAdmin, savedSchoolId, currentSchool, loading, user]);
-
   const loadSchools = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5000/api/schools', {
+      const response = await fetch('/api/schools', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -234,6 +258,37 @@ function Layout() {
   };
 
   useEffect(() => {
+    if (!isSaaSMode && !loading && user && currentSchool) {
+      checkSubscriptionAccess();
+    }
+  }, [isSaaSMode, loading, user, currentSchool]);
+
+  const checkSubscriptionAccess = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch('/api/subscriptions/check-access', {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'x-school-id': currentSchool?._id
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.hasAccess) {
+          setSubscriptionBlocked(true);
+          setBlockReason(data);
+        } else {
+          setSubscriptionBlocked(false);
+          setBlockReason(null);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check subscription access:', err);
+    }
+  };
+
+  useEffect(() => {
     const allExpanded = {};
     const sections = isSaaSMode ? saasNavSections : schoolNavSections;
     sections.forEach((_, index) => {
@@ -247,7 +302,7 @@ function Layout() {
       try {
         const token = localStorage.getItem('accessToken');
         const schoolId = localStorage.getItem('currentSchoolId');
-        const response = await fetch('http://localhost:5000/api/admissions/pending-count', {
+        const response = await fetch('/api/admissions/pending-count', {
           headers: { 
             Authorization: `Bearer ${token}`,
             'x-school-id': schoolId || ''
@@ -262,9 +317,32 @@ function Layout() {
       }
     };
     
+    const loadApprovalCount = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        const schoolId = localStorage.getItem('currentSchoolId');
+        const response = await fetch('/api/approvals/stats', {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'x-school-id': schoolId || ''
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setApprovalCount(data.pending || 0);
+        }
+      } catch (err) {
+        console.log('Failed to load approval count');
+      }
+    };
+    
     if (!isSaaSMode && currentSchool) {
       loadPendingCount();
-      const interval = setInterval(loadPendingCount, 30000);
+      loadApprovalCount();
+      const interval = setInterval(() => {
+        loadPendingCount();
+        loadApprovalCount();
+      }, 30000);
       return () => clearInterval(interval);
     }
   }, [isSaaSMode, currentSchool]);
@@ -329,6 +407,15 @@ function Layout() {
     );
   }
 
+  if (subscriptionBlocked && !isSaaSMode && currentSchool) {
+    return (
+      <SubscriptionBlocked 
+        school={currentSchool} 
+        onRetry={checkSubscriptionAccess} 
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       {mobileMenuOpen && (
@@ -342,9 +429,15 @@ function Layout() {
         <div className="flex flex-col h-full">
           <div className="p-5 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                {isSaaSMode ? <Building2 size={22} className="text-white" /> : <GraduationCap size={22} className="text-white" />}
-              </div>
+              {schoolLogo && !isSaaSMode ? (
+                <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center bg-white">
+                  <img src={schoolLogo} alt="School Logo" className="w-full h-full object-contain" />
+                </div>
+              ) : (
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  {isSaaSMode ? <Building2 size={22} className="text-white" /> : <GraduationCap size={22} className="text-white" />}
+                </div>
+              )}
               {sidebarOpen && (
                 <div>
                   <h1 className="font-bold text-lg text-white">
@@ -394,9 +487,19 @@ function Layout() {
                               {pendingCount > 99 ? '99+' : pendingCount}
                             </span>
                           )}
+                          {sidebarOpen && item.badge === 'approvals' && approvalCount > 0 && (
+                            <span className="px-2 py-0.5 bg-indigo-500 text-white text-xs font-bold rounded-full">
+                              {approvalCount > 99 ? '99+' : approvalCount}
+                            </span>
+                          )}
                           {!sidebarOpen && item.badge === 'pending' && pendingCount > 0 && (
                             <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
                               {pendingCount > 9 ? '9+' : pendingCount}
+                            </span>
+                          )}
+                          {!sidebarOpen && item.badge === 'approvals' && approvalCount > 0 && (
+                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-indigo-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                              {approvalCount > 9 ? '9+' : approvalCount}
                             </span>
                           )}
                         </Link>
@@ -430,28 +533,28 @@ function Layout() {
 
       <div className={`transition-all duration-300 ${sidebarOpen ? 'lg:ml-[280px]' : 'lg:ml-[80px]'}`}>
         <header className="header">
-          <div className="flex items-center justify-between h-full px-6">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between h-full px-4 md:px-6">
+            <div className="flex items-center gap-2 md:gap-4">
               <button
                 onClick={() => {
                   setSidebarOpen(!sidebarOpen);
                   setMobileMenuOpen(!mobileMenuOpen);
                 }}
-                className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors lg:hidden"
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors lg:hidden"
               >
                 {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
 
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors hidden lg:block"
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors hidden lg:block"
               >
                 <Menu size={20} className="text-slate-500" />
               </button>
 
               <div>
-                <h2 className="text-lg font-bold text-slate-900">{getBreadcrumb()}</h2>
-                <p className="text-xs text-slate-500">
+                <h2 className="text-base md:text-lg font-bold text-slate-900">{getBreadcrumb()}</h2>
+                <p className="hidden xs:block text-xs text-slate-500">
                   {new Date().toLocaleDateString('en-US', {
                     weekday: 'long',
                     year: 'numeric',
@@ -462,23 +565,23 @@ function Layout() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {isSuperAdmin && (
+            <div className="flex items-center gap-2 md:gap-3">
+              {isSuperAdmin && !isSaaSMode && (
                 <div className="relative">
                   <button
                     onClick={() => setSchoolDropdownOpen(!schoolDropdownOpen)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:opacity-90 transition-colors"
-                    style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
+                    className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-2 rounded-lg hover:opacity-90 transition-colors text-sm"
+                    style={{ backgroundColor: '#4F46E520', color: '#4F46E5' }}
                   >
-                    {isSaaSMode ? <Shield size={16} /> : <Building2 size={16} />}
-                    <span className="font-medium text-sm max-w-[150px] truncate">
-                      {isSaaSMode ? 'SaaS Dashboard' : (currentSchool ? currentSchool.name : (savedSchoolId ? 'Loading...' : 'Select School'))}
+                    <Building2 size={14} md:size={16} />
+                    <span className="font-medium text-xs md:text-sm max-w-[100px] md:max-w-[150px] truncate hidden sm:block">
+                      {currentSchool ? currentSchool.name : 'Select School'}
                     </span>
-                    <ChevronDown size={14} />
+                    <ChevronDown size={12} md:size={14} />
                   </button>
                   
                   {schoolDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-lg border z-50 school-dropdown">
+                    <div className="absolute right-0 top-full mt-2 w-[320px] md:w-80 bg-white rounded-xl shadow-lg border z-50 school-dropdown">
                       <div className="p-3 border-b bg-slate-50">
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -588,26 +691,35 @@ function Layout() {
               )}
               
               {!isSuperAdmin && currentSchool && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg">
+                <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg">
                   <Building2 size={16} />
                   <span className="font-medium text-sm max-w-[150px] truncate">
                     {currentSchool.name}
                   </span>
                 </div>
               )}
+              
+              {isSaaSMode && (
+                <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg">
+                  <Shield size={16} />
+                  <span className="font-medium text-sm">
+                    SaaS Mode
+                  </span>
+                </div>
+              )}
               </div>
               
-              <button className="relative p-2.5 hover:bg-slate-100 rounded-xl transition-colors">
+              <button className="relative p-2 hover:bg-slate-100 rounded-xl transition-colors">
                 <Bell size={20} className="text-slate-500" />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
               </button>
 
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-3 p-2 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="flex items-center gap-2 p-2 hover:bg-slate-100 rounded-xl transition-colors"
                 >
-                  <div className="hidden sm:block text-right">
+                  <div className="hidden md:block text-right">
                     <p className="text-sm font-semibold text-slate-900">
                       {user?.firstName} {user?.lastName}
                     </p>
@@ -615,10 +727,10 @@ function Layout() {
                       {isSaaSMode ? (isSuperAdmin ? 'Super Admin' : 'SaaS User') : user?.role?.name}
                     </p>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+                  <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
                     {user?.firstName?.[0]}{user?.lastName?.[0]}
                   </div>
-                  <ChevronDown size={16} className="text-slate-400 hidden sm:block" />
+                  <ChevronDown size={16} className="text-slate-400 hidden md:block" />
                 </button>
 
                 {userMenuOpen && (
