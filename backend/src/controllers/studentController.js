@@ -2,16 +2,14 @@ const Student = require('../models/Student');
 const Fee = require('../models/Fee');
 const User = require('../models/User');
 const Role = require('../models/Role');
+const ApprovalWorkflow = require('../models/ApprovalWorkflow');
+const ApprovalRequest = require('../models/ApprovalRequest');
 const { generateStudentId } = require('../utils/idGenerator');
 
 exports.getAllStudents = async (req, res) => {
   try {
     const { page = 1, limit = 20, search, status, all } = req.query;
     const query = { ...req.tenantQuery };
-    
-    console.log('=== getAllStudents ===');
-    console.log('search param:', search);
-    console.log('tenantQuery:', req.tenantQuery);
     
     if (status) {
       query.status = status;
@@ -26,7 +24,6 @@ exports.getAllStudents = async (req, res) => {
         { familyNumber: { $regex: search, $options: 'i' } },
         { parentPhone: { $regex: search, $options: 'i' } }
       ];
-      console.log('Built search query:', JSON.stringify(query.$or, null, 2));
     }
     
     let students;
@@ -69,7 +66,7 @@ exports.getAllStudents = async (req, res) => {
 
 exports.getStudentById = async (req, res) => {
   try {
-    const student = await Student.findById(req.params.id).populate('class', 'name code').populate('userId', 'username email isActive role');
+    const student = await Student.findOne({ _id: req.params.id, ...req.tenantQuery }).populate('class', 'name code').populate('userId', 'username email isActive role');
     if (!student) return res.status(404).json({ message: 'Student not found' });
     res.json(student);
   } catch (error) {
@@ -79,7 +76,7 @@ exports.getStudentById = async (req, res) => {
 
 exports.getSiblingsByFamily = async (req, res) => {
   try {
-    const student = await Student.findById(req.params.studentId);
+    const student = await Student.findOne({ _id: req.params.studentId, ...req.tenantQuery });
     if (!student) return res.status(404).json({ message: 'Student not found' });
     
     if (!student.familyNumber) {
@@ -122,7 +119,18 @@ exports.getSiblingsByFamily = async (req, res) => {
 
 exports.updateStudent = async (req, res) => {
   try {
-    const student = await Student.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('userId', 'username email isActive role');
+    const updateData = { ...req.body };
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === '' || updateData[key] === null) {
+        updateData[key] = undefined;
+      }
+    });
+    
+    const student = await Student.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      updateData,
+      { new: true }
+    ).populate('userId', 'username email isActive role');
     if (!student) return res.status(404).json({ message: 'Student not found' });
     res.json(student);
   } catch (error) {
@@ -132,7 +140,7 @@ exports.updateStudent = async (req, res) => {
 
 exports.deleteStudent = async (req, res) => {
   try {
-    const student = await Student.findByIdAndDelete(req.params.id);
+    const student = await Student.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!student) return res.status(404).json({ message: 'Student not found' });
     
     if (student.userId) {
@@ -156,17 +164,68 @@ exports.createStudent = async (req, res) => {
     
     const studentId = req.body.studentId || await generateStudentId(schoolId);
     
-    const studentData = {
-      ...req.body,
+    const studentData = { ...req.body };
+    Object.keys(studentData).forEach(key => {
+      if (studentData[key] === '') {
+        studentData[key] = undefined;
+      }
+    });
+    
+    Object.assign(studentData, {
       studentId: studentId,
       admissionDate: new Date(),
       admissionStatus: 'Pending',
       status: 'Active',
       school: schoolId
-    };
+    });
     
     const student = new Student(studentData);
     await student.save();
+
+    const workflow = await ApprovalWorkflow.findOne({
+      school: schoolId,
+      type: 'admission',
+      isActive: true,
+      isDefault: true
+    });
+
+    if (workflow) {
+      const user = await User.findById(req.user?.id);
+      const approvalRequest = new ApprovalRequest({
+        workflow: workflow._id,
+        school: schoolId,
+        type: 'admission',
+        referenceId: student._id,
+        referenceModel: 'Student',
+        requester: req.user?.id,
+        requesterName: user?.firstName + ' ' + user?.lastName,
+        data: {
+          firstName: student.firstName,
+          lastName: student.lastName,
+          classGrade: student.classGrade,
+          parentName: student.parentName,
+          parentPhone: student.parentPhone,
+          email: student.email
+        },
+        currentLevel: 1,
+        totalLevels: workflow.levels.length || 1,
+        status: 'pending',
+        priority: 'normal',
+        source: 'manual',
+        history: [{
+          level: 0,
+          action: 'submit',
+          actionBy: req.user?.id,
+          actionByName: user?.firstName + ' ' + user?.lastName,
+          actionAt: new Date(),
+          comments: 'Student admission submitted for approval'
+        }]
+      });
+      await approvalRequest.save();
+      
+      student.approvalRequestId = approvalRequest._id;
+      await student.save();
+    }
     
     await student.populate('userId', 'username email isActive role');
     res.status(201).json(student);
@@ -289,6 +348,7 @@ exports.getAllAdmissions = async (req, res) => {
 exports.approveAdmission = async (req, res) => {
   try {
     const { id } = req.params;
+    const { comments } = req.body;
     const userId = req.user?._id;
     
     const student = await Student.findById(id);
@@ -298,6 +358,23 @@ exports.approveAdmission = async (req, res) => {
     
     if (student.admissionStatus !== 'Pending') {
       return res.status(400).json({ message: 'This admission has already been processed' });
+    }
+
+    if (student.approvalRequestId) {
+      const approvalReq = await ApprovalRequest.findById(student.approvalRequestId);
+      if (approvalReq && approvalReq.status === 'pending') {
+        const user = await User.findById(userId);
+        approvalReq.history.push({
+          level: approvalReq.currentLevel,
+          action: 'approve',
+          actionBy: userId,
+          actionByName: user?.firstName + ' ' + user?.lastName,
+          actionAt: new Date(),
+          comments: comments || 'Admission approved'
+        });
+        approvalReq.status = 'approved';
+        await approvalReq.save();
+      }
     }
     
     student.admissionStatus = 'Approved';
@@ -387,6 +464,24 @@ exports.rejectAdmission = async (req, res) => {
     
     if (student.admissionStatus !== 'Pending') {
       return res.status(400).json({ message: 'This admission has already been processed' });
+    }
+
+    if (student.approvalRequestId) {
+      const approvalReq = await ApprovalRequest.findById(student.approvalRequestId);
+      if (approvalReq && approvalReq.status === 'pending') {
+        const user = await User.findById(userId);
+        approvalReq.history.push({
+          level: approvalReq.currentLevel,
+          action: 'reject',
+          actionBy: userId,
+          actionByName: user?.firstName + ' ' + user?.lastName,
+          actionAt: new Date(),
+          comments: reason || 'Admission rejected'
+        });
+        approvalReq.status = 'rejected';
+        approvalReq.rejectionReason = reason;
+        await approvalReq.save();
+      }
     }
     
     student.admissionStatus = 'Rejected';

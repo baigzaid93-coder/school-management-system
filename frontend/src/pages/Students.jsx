@@ -106,7 +106,11 @@ function Students() {
     e.preventDefault();
     try {
       const schoolId = localStorage.getItem('currentSchoolId');
-      const data = { ...formData, school: schoolId };
+      const data = {
+        ...formData,
+        school: schoolId,
+        section: formData.section || undefined
+      };
       if (editingStudent) {
         await studentService.update(editingStudent._id, data);
       } else {
