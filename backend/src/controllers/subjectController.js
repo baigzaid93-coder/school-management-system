@@ -6,14 +6,14 @@ exports.getAll = async (req, res) => {
     let query = req.tenantQuery ? { ...req.tenantQuery } : {};
     
     if (classGrade) {
-      query.classGrade = classGrade;
+      query.classGrades = classGrade;
     }
     if (teacher) {
       query.teachers = teacher;
     }
     
     const subjects = await Subject.find(query)
-      .populate('classGrade', 'name code level')
+      .populate('classGrades', 'name code level')
       .populate('teachers', 'firstName lastName email')
       .sort({ name: 1 });
     res.json(subjects);
@@ -46,7 +46,11 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const subject = await Subject.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const subject = await Subject.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!subject) return res.status(404).json({ message: 'Subject not found' });
     res.json(subject);
   } catch (error) {
@@ -56,7 +60,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const subject = await Subject.findByIdAndDelete(req.params.id);
+    const subject = await Subject.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!subject) return res.status(404).json({ message: 'Subject not found' });
     res.json({ message: 'Subject deleted successfully' });
   } catch (error) {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Check, X, AlertCircle, Calendar, Users, Download, Filter, Upload, FileSpreadsheet } from 'lucide-react';
-import { attendanceService, teacherService } from '../services/api';
+import api, { attendanceService, teacherService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
 import useToast from '../hooks/useToast';
@@ -35,36 +35,15 @@ function TeacherAttendance() {
       setLoading(true);
       setError(null);
       
-      const schoolId = localStorage.getItem('currentSchoolId');
-      const headers = {
-        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-        'x-school-id': schoolId || ''
-      };
-      
       const [teachersRes, attendanceRes] = await Promise.all([
-        fetch('http://localhost:5000/api/teachers', { headers }),
-        fetch(`http://localhost:5000/api/attendance?attendeeType=teacher`, { headers })
+        api.get('/teachers'),
+        api.get('/attendance?attendeeType=teacher')
       ]);
       
-      if (!teachersRes.ok) {
-        const errData = await teachersRes.json();
-        console.error('Teachers API error:', errData);
-        throw new Error(errData.message || 'Failed to load teachers');
-      }
+      setAllTeachers(Array.isArray(teachersRes.data) ? teachersRes.data : []);
+      setAttendance(Array.isArray(attendanceRes.data) ? attendanceRes.data : []);
       
-      if (!attendanceRes.ok) {
-        const errData = await attendanceRes.json();
-        console.error('Attendance API error:', errData);
-        throw new Error(errData.message || 'Failed to load attendance');
-      }
-      
-      const teachersData = await teachersRes.json();
-      const attendanceData = await attendanceRes.json();
-      
-      setAllTeachers(Array.isArray(teachersData) ? teachersData : []);
-      setAttendance(Array.isArray(attendanceData) ? attendanceData : []);
-      
-      calculateStats(Array.isArray(attendanceData) ? attendanceData : []);
+      calculateStats(Array.isArray(attendanceRes.data) ? attendanceRes.data : []);
     } catch (err) {
       console.error('Failed to load data:', err);
       setError(err.message || 'Failed to load data');
@@ -127,26 +106,14 @@ function TeacherAttendance() {
     }
     
     try {
-      const schoolId = localStorage.getItem('currentSchoolId');
-      const response = await fetch('http://localhost:5000/api/attendance/mark', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'x-school-id': schoolId || ''
-        },
-        body: JSON.stringify({
-          attendeeType: 'teacher',
-          teacher: teacherId,
-          date: selectedDate,
-          status,
-          school: schoolId
-        })
+      const response = await api.post('/attendance/mark', {
+        attendeeType: 'teacher',
+        teacher: teacherId,
+        date: selectedDate,
+        status
       });
       
-      const result = await response.json();
-      
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         setAttendance(prev => {
           const existingIndex = prev.findIndex(a => {
             const recordDate = new Date(a.date).toDateString();
@@ -198,8 +165,7 @@ function TeacherAttendance() {
           attendeeType: 'teacher',
           teacher: r.teacherId,
           date: selectedDate,
-          status: r.status,
-          school: schoolId
+          status: r.status
         }));
       
       if (records.length === 0) {
@@ -207,23 +173,14 @@ function TeacherAttendance() {
         return;
       }
       
-      const response = await fetch('http://localhost:5000/api/attendance/bulk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'x-school-id': schoolId || ''
-        },
-        body: JSON.stringify({ attendanceRecords: records })
-      });
+      const response = await api.post('/attendance/bulk', { attendanceRecords: records });
       
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         setShowBulkModal(false);
         loadData();
         toast.success('Attendance saved successfully');
       } else {
-        const result = await response.json();
-        toast.error(result.message || 'Failed to save attendance');
+        toast.error(response.data?.message || 'Failed to save attendance');
       }
     } catch (err) {
       console.error('Failed to save bulk attendance:', err);
@@ -336,25 +293,16 @@ function TeacherAttendance() {
         return;
       }
       
-      const response = await fetch('http://localhost:5000/api/attendance/bulk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'x-school-id': schoolId || ''
-        },
-        body: JSON.stringify({ attendanceRecords: validRecords })
-      });
+      const response = await api.post('/attendance/bulk', { attendanceRecords: validRecords });
       
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         setShowImportModal(false);
         setImportPreview([]);
         if (fileInputRef.current) fileInputRef.current.value = '';
         loadData();
         toast.success(`Successfully imported ${validRecords.length} attendance records`);
       } else {
-        const result = await response.json();
-        toast.error(result.message || 'Failed to import attendance');
+        toast.error(response.data?.message || 'Failed to import attendance');
       }
     } catch (err) {
       console.error('Failed to import attendance:', err);

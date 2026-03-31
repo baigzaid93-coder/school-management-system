@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Edit2, Trash2, X, Building2, Users, GraduationCap, CreditCard, CheckCircle, XCircle, AlertTriangle, LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import useToast from '../hooks/useToast';
 
 const AVAILABLE_MODULES = [
@@ -28,13 +29,13 @@ const PLANS = [
   { key: 'Enterprise', price: 50000, maxStudents: -1, maxTeachers: -1 }
 ];
 
-function Schools() {
+function Schools({ newSchoolMode = false }) {
   const toast = useToast();
   const { switchSchool } = useAuth();
   const navigate = useNavigate();
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState(newSchoolMode);
   const [editingSchool, setEditingSchool] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -52,24 +53,21 @@ function Schools() {
     loadSchools();
   }, []);
 
+  useEffect(() => {
+    if (newSchoolMode) {
+      setShowModal(true);
+    }
+  }, [newSchoolMode]);
+
   const loadSchools = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5000/api/schools', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/schools');
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (Array.isArray(data)) {
-        setSchools(data);
-      } else if (data.message) {
-        console.error('Error loading schools:', data.message);
+      if (Array.isArray(response.data)) {
+        setSchools(response.data);
+      } else if (response.data.message) {
+        console.error('Error loading schools:', response.data.message);
         setSchools([]);
       } else {
         setSchools([]);
@@ -88,8 +86,8 @@ function Schools() {
       const token = localStorage.getItem('accessToken');
       const method = editingSchool ? 'PUT' : 'POST';
       const url = editingSchool 
-        ? `http://localhost:5000/api/schools/${editingSchool._id}`
-        : 'http://localhost:5000/api/schools';
+        ? `/api/schools/${editingSchool._id}`
+        : '/api/schools';
 
       const response = await fetch(url, {
         method,
@@ -115,7 +113,7 @@ function Schools() {
     if (!confirm('Are you sure? This will also delete all users associated with this school.')) return;
     try {
       const token = localStorage.getItem('accessToken');
-      await fetch(`http://localhost:5000/api/schools/${id}`, {
+      await fetch(`/api/schools/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -296,7 +294,7 @@ function Schools() {
               <h3 className="text-lg font-semibold">
                 {editingSchool ? 'Edit School' : 'Add New School'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded">
+              <button onClick={() => { setShowModal(false); if (newSchoolMode) navigate('/schools'); }} className="p-2 hover:bg-gray-100 rounded">
                 <X size={20} />
               </button>
             </div>

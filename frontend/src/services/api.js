@@ -1,12 +1,13 @@
 import axios from 'axios';
 
-const API_URL = 'https://job-hello-appreciated-superb.trycloudflare.com/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  withCredentials: true
 });
 
 api.interceptors.request.use(
@@ -218,7 +219,7 @@ export const expenseService = {
 
 export const voucherService = {
   getPreview: (id) => api.get(`/vouchers/${id}`),
-  downloadPDF: (id) => `${API_URL}/vouchers/${id}/pdf`
+  downloadPDF: (id) => `/api/vouchers/${id}/pdf`
 };
 
 export const dashboardService = {
@@ -311,7 +312,55 @@ export const settingsService = {
     get: () => api.get('/letter-head'),
     save: (data) => api.post('/letter-head', data),
     delete: () => api.delete('/letter-head')
+  },
+  reportTemplates: {
+    getAvailableFields: (entityType) => api.get(`/report-templates/fields/${entityType}`),
+    getAll: () => api.get('/report-templates'),
+    getById: (id) => api.get(`/report-templates/${id}`),
+    create: (data) => api.post('/report-templates', data),
+    update: (id, data) => api.put(`/report-templates/${id}`, data),
+    delete: (id) => api.delete(`/report-templates/${id}`),
+    duplicate: (id) => api.post(`/report-templates/${id}/duplicate`),
+    execute: (id, filters) => api.post(`/report-templates/${id}/execute`, { filters })
   }
 };
 
+export const reportTemplates = {
+  getAvailableFields: (entityType) => api.get(`/report-templates/fields/${entityType}`),
+  getAllEntityTypes: () => api.get('/report-templates/entity-types'),
+  getAll: (params) => api.get('/report-templates', { params }),
+  getById: (id) => api.get(`/report-templates/${id}`),
+  create: (data) => api.post('/report-templates', data),
+  update: (id, data) => api.put(`/report-templates/${id}`, data),
+  delete: (id) => api.delete(`/report-templates/${id}`),
+  duplicate: (id) => api.post(`/report-templates/${id}/duplicate`),
+  execute: (id, filters, pagination) => api.post(`/report-templates/${id}/execute`, { filters, ...pagination })
+};
+
 export default api;
+
+export const invoiceService = {
+  getAll: (params) => api.get('/invoices', { params }),
+  getBySchool: (params) => api.get('/invoices/school', { params }),
+  getById: (id) => api.get(`/invoices/${id}`),
+  getStats: () => api.get('/invoices/stats'),
+  generate: (data) => api.post('/invoices/generate', data),
+  markPaid: (id, data) => api.patch(`/invoices/${id}/paid`, data),
+  updateStatus: (id, data) => api.patch(`/invoices/${id}/status`, data),
+  send: (id) => api.patch(`/invoices/${id}/send`),
+  void: (id, reason) => api.patch(`/invoices/${id}/void`, { reason })
+};
+
+export const subscriptionService = {
+  getPlans: () => api.get('/subscriptions/plans'),
+  getCurrent: () => api.get('/subscriptions/current'),
+  checkUsage: () => api.get('/subscriptions/usage'),
+  getBillingHistory: () => api.get('/subscriptions/billing'),
+  updatePlan: (data) => api.patch('/subscriptions/plan', data),
+  cancel: (reason) => api.patch('/subscriptions/cancel', { reason }),
+  getAll: (params) => api.get('/subscriptions/all', { params }),
+  updateByAdmin: (schoolId, data) => api.patch(`/subscriptions/school/${schoolId}`, data)
+};
+
+// Add reportTemplates directly to api for convenience
+api.reportTemplates = reportTemplates;

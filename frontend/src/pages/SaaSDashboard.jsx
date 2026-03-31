@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api, { invoiceService } from '../services/api';
 import {
   Building2, Users, TrendingUp, CreditCard, CheckCircle, Clock, DollarSign,
-  Plus, ArrowRight, Shield, BarChart3, Briefcase, UserCog, Building, School
+  Plus, ArrowRight, Shield, BarChart3, Briefcase, UserCog, Building, School,
+  Receipt, RefreshCw
 } from 'lucide-react';
 
 function SaaSDashboard() {
@@ -11,11 +13,14 @@ function SaaSDashboard() {
   const navigate = useNavigate();
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [recentTransactions, setRecentTransactions] = useState([]);
   const [stats, setStats] = useState({
     totalSchools: 0,
     activeSchools: 0,
     trialSchools: 0,
     totalRevenue: 0,
+    monthlyRevenue: 0,
+    pendingAmount: 0,
     totalStudents: 0,
     totalTeachers: 0
   });
@@ -26,27 +31,76 @@ function SaaSDashboard() {
 
   const loadData = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5000/api/schools', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await response.json();
-      setSchools(Array.isArray(data) ? data : []);
+      const [schoolsRes, invoicesRes] = await Promise.all([
+        api.get('/schools'),
+        api.get('/invoices?limit=100')
+      ]);
       
-      const active = data.filter(s => s.subscription?.status === 'Active').length;
-      const trial = data.filter(s => s.subscription?.status === 'Trial').length;
-      const revenue = data.reduce((sum, s) => sum + (s.subscription?.price || 0), 0);
+      const schoolsList = Array.isArray(schoolsRes.data) ? schoolsRes.data : [];
+      const invoicesList = invoicesRes.data.invoices || [];
+      
+      setSchools(schoolsList);
+      
+      const schoolIds = new Set(schoolsList.map(s => s._id?.toString()));
+      const schoolNames = {};
+      schoolsList.forEach(s => schoolNames[s._id?.toString()] = s.name);
+      
+      const validInvoices = invoicesList
+        .filter(inv => {
+          const schoolId = inv.school?._id?.toString() || inv.school?.toString();
+          return schoolId && schoolIds.has(schoolId);
+        })
+        .map(inv => {
+          const schoolId = inv.school?._id?.toString() || inv.school?.toString();
+          return {
+            ...inv,
+            schoolName: schoolNames[schoolId] || 'Unknown'
+          };
+        });
+      
+      const active = schoolsList.filter(s => s.subscription?.status === 'Active').length;
+      const trial = schoolsList.filter(s => s.subscription?.status === 'Trial').length;
+      
+      const paidInvoices = validInvoices.filter(inv => inv.status === 'Paid');
+      const totalRevenue = paidInvoices.reduce((sum, inv) => sum + (inv.charges?.total || 0), 0);
+      
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      const monthlyPaid = paidInvoices.filter(inv => 
+        inv.period?.month === currentMonth && inv.period?.year === currentYear
+      );
+      const monthlyRevenue = monthlyPaid.reduce((sum, inv) => sum + (inv.charges?.total || 0), 0);
+      
+      const pendingInvoices = validInvoices.filter(inv => ['Generated', 'Sent', 'Overdue'].includes(inv.status));
+      const pendingAmount = pendingInvoices.reduce((sum, inv) => sum + (inv.charges?.total || 0), 0);
+      
+      const allRecentInvoices = validInvoices
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 10)
+        .map(inv => ({
+          id: inv._id,
+          invoiceNumber: inv.invoiceNumber,
+          schoolName: inv.schoolName,
+          amount: inv.charges?.total || 0,
+          date: inv.paidDate || inv.dueDate || inv.createdAt,
+          plan: inv.subscription?.plan || 'Free',
+          status: inv.status
+        }));
       
       setStats({
-        totalSchools: data.length,
+        totalSchools: schoolsList.length,
         activeSchools: active,
         trialSchools: trial,
-        totalRevenue: revenue,
+        totalRevenue: totalRevenue,
+        monthlyRevenue: monthlyRevenue,
+        pendingAmount: pendingAmount,
         totalStudents: 0,
         totalTeachers: 0
       });
+      
+      setRecentTransactions([]);
     } catch (err) {
-      console.error('Failed to load data');
+      console.error('Failed to load data:', err);
     } finally {
       setLoading(false);
     }
@@ -87,15 +141,25 @@ function SaaSDashboard() {
           <h1 className="page-title">SaaS Dashboard</h1>
           <p className="page-subtitle">Manage your multi-tenant school platform</p>
         </div>
-        <button
-          onClick={() => navigate('/schools/new')}
-          className="btn btn-primary btn-md"
-        >
-          <Plus size={18} /> Add School
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadData}
+            className="btn btn-secondary btn-md"
+            disabled={loading}
+          >
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+          <button
+            onClick={() => navigate('/schools/new')}
+            className="btn btn-primary btn-md"
+          >
+            <Plus size={18} /> Add School
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
@@ -129,10 +193,30 @@ function SaaSDashboard() {
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm font-medium">Monthly Revenue</p>
+              <p className="text-purple-100 text-sm font-medium">Total Revenue</p>
               <p className="text-4xl font-bold mt-2">Rs. {stats.totalRevenue.toLocaleString()}</p>
             </div>
             <DollarSign size={48} className="text-purple-300" />
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-teal-100 text-sm font-medium">This Month</p>
+              <p className="text-4xl font-bold mt-2">Rs. {stats.monthlyRevenue.toLocaleString()}</p>
+            </div>
+            <TrendingUp size={48} className="text-teal-300" />
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-orange-100 text-sm font-medium">Pending</p>
+              <p className="text-4xl font-bold mt-2">Rs. {stats.pendingAmount.toLocaleString()}</p>
+            </div>
+            <Clock size={48} className="text-orange-300" />
           </div>
         </div>
       </div>
@@ -203,8 +287,83 @@ function SaaSDashboard() {
               </table>
             </div>
           </div>
+          
+          <div className="card">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-bold text-slate-900">Recent Transactions</h3>
+                <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                  {recentTransactions.length} payments
+                </span>
+              </div>
+              <button
+                onClick={() => navigate('/saas/billing')}
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+              >
+                View All <ArrowRight size={14} className="inline" />
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">School</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Plan</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {recentTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-12 text-center">
+                        <Receipt size={48} className="mx-auto mb-4 text-slate-300" />
+                        <p className="text-slate-500">No transactions yet</p>
+                        <p className="text-sm text-slate-400">Payments will appear here when schools pay their invoices</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    recentTransactions.map((tx) => (
+                      <tr key={tx.id} className="hover:bg-slate-50">
+                        <td className="px-6 py-4">
+                          <p className="font-medium text-slate-900">{tx.schoolName}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">
+                            {tx.plan}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="font-bold text-slate-900">Rs {tx.amount.toLocaleString()}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-slate-600">
+                            {new Date(tx.date).toLocaleDateString('en-US', { 
+                              day: '2-digit', 
+                              month: 'short', 
+                              year: 'numeric'
+                            })}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            tx.status === 'Paid' ? 'bg-green-100 text-green-700' : 
+                            tx.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {tx.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-
+        
         <div className="lg:col-span-1">
           <div className="card p-6">
             <h3 className="text-lg font-bold text-slate-900 mb-4">Quick Actions</h3>

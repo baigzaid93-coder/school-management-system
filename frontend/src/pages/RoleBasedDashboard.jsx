@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api, { dashboardService, attendanceService, feeService } from '../services/api';
 import {
   Users, GraduationCap, BookOpen, DollarSign, TrendingUp,
   Calendar, Clock, CheckCircle, UserCheck, ArrowRight,
   UserPlus, Search, FileText, Settings, ClipboardCheck, TrendingDown,
   Building2, Plus
 } from 'lucide-react';
-import { dashboardService, attendanceService, feeService } from '../services/api';
 
 function RoleBasedDashboard() {
   const { user, hasRole, currentSchool, switchSchool } = useAuth();
@@ -32,12 +32,8 @@ function RoleBasedDashboard() {
 
   const loadSchools = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5000/api/schools', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await response.json();
-      setSchools(Array.isArray(data) ? data : []);
+      const response = await api.get('/schools');
+      setSchools(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Failed to load schools:', error);
     } finally {

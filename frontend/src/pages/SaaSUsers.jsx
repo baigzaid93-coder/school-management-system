@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import { 
   Users, Plus, Search, MoreVertical, Mail, Shield, 
   UserCheck, UserX, Edit, Trash2, Filter, X, KeyRound
@@ -26,7 +27,7 @@ function SaaSUsers() {
     password: '',
     role: '',
     isActive: true,
-    isSuperAdmin: false // Must be exactly boolean false, not "false" or undefined
+    isSuperAdmin: false
   });
   const [newPassword, setNewPassword] = useState('');
 
@@ -38,15 +39,11 @@ function SaaSUsers() {
     try {
       setLoading(true);
       const [usersRes, rolesRes] = await Promise.all([
-        fetch('http://localhost:5000/api/auth/users/saas', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-        }).then(r => r.json()),
-        fetch('http://localhost:5000/api/roles', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-        }).then(r => r.json())
+        api.get('/auth/users/saas'),
+        api.get('/roles')
       ]);
-      setUsers(Array.isArray(usersRes.users) ? usersRes.users : []);
-      setRoles(Array.isArray(rolesRes) ? rolesRes : []);
+      setUsers(Array.isArray(usersRes.data.users) ? usersRes.data.users : []);
+      setRoles(Array.isArray(rolesRes.data) ? rolesRes.data : []);
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
@@ -77,26 +74,19 @@ function SaaSUsers() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
-        },
-        body: JSON.stringify({
+      const response = await api.post('/auth/register', {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        username: formData.username,
+        password: formData.password,
+        role: formData.role,
+        isActive: formData.isActive,
+        isSuperAdmin: formData.isSuperAdmin,
+        profile: {
           firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          username: formData.username,
-          password: formData.password,
-          role: formData.role,
-          isActive: formData.isActive,
-          isSuperAdmin: formData.isSuperAdmin,
-          profile: {
-            firstName: formData.firstName,
-            lastName: formData.lastName
-          }
-        })
+          lastName: formData.lastName
+        }
       });
       const data = await response.json();
       if (response.ok) {
@@ -114,7 +104,7 @@ function SaaSUsers() {
 
   const handleToggleStatus = async (userId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/auth/users/${userId}/toggle`, {
+      const response = await fetch(`/api/auth/users/${userId}/toggle`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
       });
@@ -129,7 +119,7 @@ function SaaSUsers() {
   const handleDelete = async (userId) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
     try {
-      const response = await fetch(`http://localhost:5000/api/auth/users/${userId}`, {
+      const response = await fetch(`/api/auth/users/${userId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
       });
@@ -148,25 +138,17 @@ function SaaSUsers() {
       return;
     }
     try {
-      const response = await fetch('http://localhost:5000/api/auth/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
-        },
-        body: JSON.stringify({
-          userId: selectedUser._id,
-          newPassword: newPassword
-        })
+      const response = await api.post('/auth/change-password', {
+        userId: selectedUser._id,
+        newPassword: newPassword
       });
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         setShowResetModal(false);
         setSelectedUser(null);
         setNewPassword('');
         toast.success('Password reset successfully');
       } else {
-        const data = await response.json();
-        toast.error(data.message || 'Failed to reset password');
+        toast.error(response.data?.message || 'Failed to reset password');
       }
     } catch (err) {
       toast.error('Failed to reset password');

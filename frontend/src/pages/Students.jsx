@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Edit2, Trash2, X, Users, AlertCircle, Download, CreditCard, Plus, Eye, FileText, DollarSign, Phone, Mail, Calendar, BookOpen, User, UsersRound } from 'lucide-react';
+import { Search, Edit2, Trash2, X, Users, AlertCircle, Download, CreditCard, Plus, Eye, FileText, DollarSign, Phone, Mail, Calendar, BookOpen, User, UsersRound, FileDown } from 'lucide-react';
 import { studentService, feeService, classGradeService } from '../services/api';
-import { generateFeeVoucherPDF, generateStudentCard, generateFamilyChallanPDF } from '../utils/pdfGenerator';
+import { generateFeeVoucherPDF, generateStudentCard, generateFamilyChallanPDF, generateBulkFeeVouchersPDF } from '../utils/pdfGenerator';
 import useToast from '../hooks/useToast';
 
 function Students() {
@@ -20,6 +20,8 @@ function Students() {
   const [studentFines, setStudentFines] = useState([]);
   const [editingStudent, setEditingStudent] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
   const [formData, setFormData] = useState({
     studentId: '',
     firstName: '',
@@ -293,6 +295,71 @@ function Students() {
     }
   };
 
+  const handleSelectAllStudents = () => {
+    if (selectAll) {
+      setSelectedStudents([]);
+      setSelectAll(false);
+    } else {
+      setSelectedStudents(students.map(s => s._id));
+      setSelectAll(true);
+    }
+  };
+
+  const handleSelectStudent = (studentId) => {
+    if (selectedStudents.includes(studentId)) {
+      setSelectedStudents(selectedStudents.filter(id => id !== studentId));
+    } else {
+      setSelectedStudents([...selectedStudents, studentId]);
+    }
+    setSelectAll(false);
+  };
+
+  const handleBulkDownloadVouchers = async () => {
+    if (selectedStudents.length === 0) {
+      toast.warning('Please select at least one student');
+      return;
+    }
+    
+    try {
+      const feesData = [];
+      
+      for (const studentId of selectedStudents) {
+        const student = students.find(s => s._id === studentId);
+        if (!student) continue;
+        
+        let fees = [];
+        try {
+          const response = await feeService.getByStudent(studentId);
+          fees = response.data || [];
+        } catch (e) {
+          fees = [
+            { description: 'Registration Fee', amount: 5000, paidAmount: 0 },
+            { description: 'Monthly Tuition Fee', amount: 3000, paidAmount: 0 },
+            { description: 'Security Fee', amount: 2000, paidAmount: 0 },
+          ];
+        }
+        
+        feesData.push({
+          student: {
+            fullName: `${student.firstName} ${student.lastName}`,
+            studentId: student.studentId,
+            classGrade: student.classGrade?.name || student.class?.name || '-',
+            fatherName: student.parentName,
+            phone: student.parentPhone,
+            familyNumber: student.familyNumber || ''
+          },
+          fees: fees.length > 0 ? fees : [{ description: 'Tuition Fee', amount: 5000, paidAmount: 0 }]
+        });
+      }
+      
+      await generateBulkFeeVouchersPDF(feesData);
+      toast.success(`Downloaded vouchers for ${selectedStudents.length} students`);
+    } catch (err) {
+      console.error('Error generating bulk vouchers:', err);
+      toast.error('Failed to generate bulk vouchers');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -319,10 +386,18 @@ function Students() {
           <h1 className="page-title">Students</h1>
           <p className="page-subtitle">Manage all student records</p>
         </div>
-        <button onClick={() => navigate('/students/admit')} className="btn btn-primary btn-md">
-          <Plus size={18} />
-          Add Student
-        </button>
+        <div className="flex gap-2">
+          {selectedStudents.length > 0 && (
+            <button onClick={handleBulkDownloadVouchers} className="btn btn-purple btn-md">
+              <FileDown size={18} />
+              Download Vouchers ({selectedStudents.length})
+            </button>
+          )}
+          <button onClick={() => navigate('/students/admit')} className="btn btn-primary btn-md">
+            <Plus size={18} />
+            Add Student
+          </button>
+        </div>
       </div>
 
       <div className="card p-6 mb-6">
@@ -362,6 +437,14 @@ function Students() {
           <table className="table">
             <thead>
               <tr>
+                <th style={{ width: '40px' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectAll}
+                    onChange={handleSelectAllStudents}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
                 <th>ID</th>
                 <th>Name</th>
                 <th>Gender</th>
@@ -374,14 +457,32 @@ function Students() {
               </tr>
             </thead>
               <tbody>
-              {students.map((student) => (
-                <tr key={student._id}>
+              {students.map((student) => {
+                const isSelected = selectedStudents.includes(student._id);
+                return (
+                <tr key={student._id} className={isSelected ? 'bg-blue-50' : ''}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleSelectStudent(student._id)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                  </td>
                   <td className="font-semibold text-indigo-600">{student.studentId}</td>
                   <td>
                     <div className="flex items-center gap-3">
-                      <div className="avatar avatar-md">
-                        {student.firstName?.[0]}{student.lastName?.[0]}
-                      </div>
+                      {student.photo || student.admissionForm?.photo ? (
+                        <img 
+                          src={student.photo || student.admissionForm?.photo} 
+                          alt={`${student.firstName} ${student.lastName}`}
+                          className="w-10 h-10 rounded-full object-cover border-2 border-slate-200"
+                        />
+                      ) : (
+                        <div className="avatar avatar-md">
+                          {student.firstName?.[0]}{student.lastName?.[0]}
+                        </div>
+                      )}
                       <div>
                         <p className="font-medium text-slate-900">{student.firstName} {student.lastName}</p>
                         <p className="text-sm text-slate-500">{student.email}</p>
@@ -455,7 +556,8 @@ function Students() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -651,9 +753,9 @@ function Students() {
             <div className="modal-body" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
               <div className="flex gap-8">
                 <div className="flex-shrink-0">
-                  {selectedStudent.photo ? (
+                  {selectedStudent.photo || selectedStudent.admissionForm?.photo ? (
                     <img 
-                      src={selectedStudent.photo} 
+                      src={selectedStudent.photo || selectedStudent.admissionForm?.photo} 
                       alt={selectedStudent.firstName} 
                       className="w-32 h-32 rounded-full object-cover border-4 border-indigo-200"
                     />

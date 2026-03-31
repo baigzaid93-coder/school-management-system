@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User, Users, Calendar, BookOpen, DollarSign, TrendingUp, Clock, CheckCircle, XCircle, AlertCircle, GraduationCap } from 'lucide-react';
+import api from '../services/api';
 
 function ParentPortal() {
   const [parent, setParent] = useState(null);
@@ -15,13 +16,11 @@ function ParentPortal() {
   const loadParentData = async () => {
     try {
       setLoading(true);
+      
+      const parentsRes = await api.get('/parents');
+      const parentsData = parentsRes.data;
+      
       const token = localStorage.getItem('accessToken');
-      
-      const parentsRes = await fetch('http://localhost:5000/api/parents', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const parentsData = await parentsRes.json();
-      
       const parentWithChildren = Array.isArray(parentsData) 
         ? parentsData.find(p => p.userId?.username === JSON.parse(atob(token.split('.')[1]))?.username)
         : null;
@@ -31,25 +30,17 @@ function ParentPortal() {
         
         const childrenWithDetails = await Promise.all(
           (parentWithChildren.students || []).map(async (studentId) => {
-            const studentRes = await fetch(`http://localhost:5000/api/students/${typeof studentId === 'object' ? studentId._id : studentId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            const student = await studentRes.json();
+            const studentRes = await api.get(`/students/${typeof studentId === 'object' ? studentId._id : studentId}`);
+            const student = studentRes.data;
             
-            const attendanceRes = await fetch(`http://localhost:5000/api/attendance/student/${student._id}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            const attendance = await attendanceRes.json();
+            const attendanceRes = await api.get(`/attendance/student/${student._id}`);
+            const attendance = attendanceRes.data;
             
-            const gradesRes = await fetch(`http://localhost:5000/api/grades/student/${student._id}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            const grades = await gradesRes.json();
+            const gradesRes = await api.get(`/grades/student/${student._id}`);
+            const grades = gradesRes.data;
             
-            const feesRes = await fetch(`http://localhost:5000/api/fees/student/${student._id}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            const fees = await feesRes.json();
+            const feesRes = await api.get(`/fees/student/${student._id}`);
+            const fees = feesRes.data;
             
             return {
               ...student,

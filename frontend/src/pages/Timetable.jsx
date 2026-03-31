@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CalendarDays, Plus, Edit2, Trash2, X, Clock, BookOpen, User, MapPin, Save, Wand2 } from 'lucide-react';
-import { timetableService } from '../services/api';
+import api, { timetableService } from '../services/api';
 import useToast from '../hooks/useToast';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -56,14 +56,8 @@ function Timetable() {
   const loadClassSubjects = async () => {
     if (!selectedClass) return;
     try {
-      const schoolId = localStorage.getItem('currentSchoolId');
-      const res = await fetch(`http://localhost:5000/api/settings/subjects?classGrade=${selectedClass}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'x-school-id': schoolId || ''
-        }
-      });
-      const data = await res.json();
+      const res = await api.get(`/settings/subjects?classGrade=${selectedClass}`);
+      const data = res.data;
       const classSubs = Array.isArray(data) ? data.filter(s => 
         s.classGrades?.some(cg => cg._id === selectedClass || cg === selectedClass)
       ) : [];
@@ -149,25 +143,15 @@ function Timetable() {
 
   const loadInitialData = async () => {
     try {
-      const schoolId = localStorage.getItem('currentSchoolId');
-      const headers = {
-        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-        'x-school-id': schoolId || ''
-      };
-      
       const [classesRes, subjectsRes, teachersRes] = await Promise.all([
-        fetch('http://localhost:5000/api/class-grades', { headers }),
-        fetch('http://localhost:5000/api/settings/subjects', { headers }),
-        fetch('http://localhost:5000/api/teachers', { headers })
+        api.get('/class-grades'),
+        api.get('/settings/subjects'),
+        api.get('/teachers')
       ]);
       
-      const classesData = await classesRes.json();
-      const subjectsData = await subjectsRes.json();
-      const teachersData = await teachersRes.json();
-      
-      setClassGrades(Array.isArray(classesData) ? classesData : []);
-      setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
-      setTeachers(Array.isArray(teachersData) ? teachersData : []);
+      setClassGrades(Array.isArray(classesRes.data) ? classesRes.data : []);
+      setSubjects(Array.isArray(subjectsRes.data) ? subjectsRes.data : []);
+      setTeachers(Array.isArray(teachersRes.data) ? teachersRes.data : []);
     } catch (err) {
       console.error('Failed to load initial data');
     }
@@ -176,15 +160,8 @@ function Timetable() {
   const loadSections = async () => {
     if (!selectedClass) return;
     try {
-      const schoolId = localStorage.getItem('currentSchoolId');
-      const res = await fetch(`http://localhost:5000/api/class-grades/${selectedClass}/sections`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'x-school-id': schoolId || ''
-        }
-      });
-      const data = await res.json();
-      setSections(Array.isArray(data) ? data : []);
+      const res = await api.get(`/class-grades/${selectedClass}/sections`);
+      setSections(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Failed to load sections');
     }

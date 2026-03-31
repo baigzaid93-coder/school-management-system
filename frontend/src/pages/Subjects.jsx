@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, BookMarked, AlertCircle, Users, BookOpen } from 'lucide-react';
-import { classGradeService, teacherService } from '../services/api';
+import api, { classGradeService, teacherService } from '../services/api';
 import useToast from '../hooks/useToast';
 
 function Subjects() {
@@ -44,26 +44,16 @@ function Subjects() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const schoolId = localStorage.getItem('currentSchoolId');
       
       const [subjectsRes, classesRes, teachersRes] = await Promise.all([
-        fetch('http://localhost:5000/api/settings/subjects', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-            'x-school-id': schoolId || ''
-          }
-        }),
+        api.get('/settings/subjects'),
         classGradeService.getAll(),
         teacherService.getAll()
       ]);
       
-      const subjectsData = await subjectsRes.json();
-      const classesData = classesRes.data;
-      const teachersData = teachersRes.data;
-      
-      setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
-      setClassGrades(Array.isArray(classesData) ? classesData : []);
-      setTeachers(Array.isArray(teachersData) ? teachersData : []);
+      setSubjects(Array.isArray(subjectsRes.data) ? subjectsRes.data : []);
+      setClassGrades(Array.isArray(classesRes.data) ? classesRes.data : []);
+      setTeachers(Array.isArray(teachersRes.data) ? teachersRes.data : []);
     } catch (err) {
       console.error('Failed to load data:', err);
       setError('Failed to load data');
@@ -74,19 +64,12 @@ function Subjects() {
 
   const loadSubjects = async () => {
     try {
-      const schoolId = localStorage.getItem('currentSchoolId');
-      let url = 'http://localhost:5000/api/settings/subjects';
+      let url = '/settings/subjects';
       if (filterClass) {
         url += `?classGrade=${filterClass}`;
       }
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'x-school-id': schoolId || ''
-        }
-      });
-      const data = await response.json();
-      setSubjects(Array.isArray(data) ? data : []);
+      const response = await api.get(url);
+      setSubjects(Array.isArray(response.data) ? response.data : []);
       setLoading(false);
     } catch (err) {
       console.error('Failed to load subjects');
@@ -97,28 +80,18 @@ function Subjects() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const schoolId = localStorage.getItem('currentSchoolId');
-      console.log('Submitting subject:', formData, 'School ID:', schoolId);
+      console.log('Submitting subject:', formData);
       
-      const method = editingSubject ? 'PUT' : 'POST';
-      const url = editingSubject 
-        ? `http://localhost:5000/api/settings/subjects/${editingSubject._id}`
-        : 'http://localhost:5000/api/settings/subjects';
+      let response;
+      if (editingSubject) {
+        response = await api.put(`/settings/subjects/${editingSubject._id}`, formData);
+      } else {
+        response = await api.post('/settings/subjects', formData);
+      }
       
-      const response = await fetch(url, {
-        method,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'x-school-id': schoolId || ''
-        },
-        body: JSON.stringify({ ...formData, school: schoolId })
-      });
+      console.log('Response:', response.status, response.data);
       
-      const result = await response.json();
-      console.log('Response:', response.status, result);
-      
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         setShowModal(false);
         resetForm();
         loadSubjects();
@@ -151,7 +124,7 @@ function Subjects() {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure?')) return;
     try {
-      await fetch(`http://localhost:5000/api/settings/subjects/${id}`, { method: 'DELETE' });
+      await api.delete(`/settings/subjects/${id}`);
       loadSubjects();
       toast.success('Subject deleted successfully');
     } catch (err) {
@@ -170,24 +143,14 @@ function Subjects() {
 
   const handleAssign = async () => {
     try {
-      const schoolId = localStorage.getItem('currentSchoolId');
-      const response = await fetch(`http://localhost:5000/api/settings/subjects/${selectedSubject._id}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'x-school-id': schoolId || ''
-        },
-        body: JSON.stringify({ ...assignData, school: schoolId })
-      });
+      const response = await api.put(`/settings/subjects/${selectedSubject._id}`, assignData);
       
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         setShowAssignModal(false);
         loadSubjects();
         toast.success('Assignments saved successfully');
       } else {
-        const result = await response.json();
-        toast.error(result.message || 'Failed to assign');
+        toast.error(response.data?.message || 'Failed to assign');
       }
     } catch (err) {
       toast.error('Failed to assign');

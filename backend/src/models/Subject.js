@@ -4,7 +4,7 @@ const subjectSchema = new mongoose.Schema({
   name: { type: String, required: true },
   code: { type: String, required: true },
   type: { type: String, enum: ['Theory', 'Practical', 'Both'], default: 'Theory' },
-  classGrade: { type: mongoose.Schema.Types.ObjectId, ref: 'ClassGrade' },
+  classGrades: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ClassGrade' }],
   description: String,
   isCompulsory: { type: Boolean, default: false },
   hasLab: { type: Boolean, default: false },

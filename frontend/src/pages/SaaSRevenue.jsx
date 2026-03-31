@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import { 
   TrendingUp, DollarSign, Building2, CreditCard, 
   Download, Calendar, ArrowUpRight, ArrowDownRight, Filter,
@@ -17,6 +18,7 @@ function SaaSRevenue() {
     growthRate: 0
   });
   const [revenueData, setRevenueData] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('monthly');
 
@@ -26,17 +28,36 @@ function SaaSRevenue() {
 
   const loadRevenueData = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5000/api/schools', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const schools = await response.json();
+      const [schoolsRes, invoicesRes] = await Promise.all([
+        api.get('/schools'),
+        api.get('/invoices?limit=100')
+      ]);
       
-      const schoolsArray = Array.isArray(schools) ? schools : [];
+      const schoolsArray = Array.isArray(schoolsRes.data) ? schoolsRes.data : [];
+      const invoicesList = invoicesRes.data.invoices || [];
+      
+      const schoolIds = new Set(schoolsArray.map(s => s._id?.toString()));
+      const schoolNames = {};
+      schoolsArray.forEach(s => schoolNames[s._id?.toString()] = s.name);
+      
+      const validInvoices = invoicesList
+        .filter(inv => {
+          const schoolId = inv.school?._id?.toString() || inv.school?.toString();
+          return schoolId && schoolIds.has(schoolId);
+        })
+        .map(inv => {
+          const schoolId = inv.school?._id?.toString() || inv.school?.toString();
+          return {
+            ...inv,
+            schoolName: schoolNames[schoolId] || 'Unknown'
+          };
+        });
+      
       const active = schoolsArray.filter(s => s.subscription?.status === 'Active');
       const trial = schoolsArray.filter(s => s.subscription?.status === 'Trial');
       
-      const mrr = active.reduce((sum, s) => sum + (s.subscription?.price || 0), 0);
+      const paidInvoices = validInvoices.filter(inv => inv.status === 'Paid');
+      const mrr = paidInvoices.reduce((sum, inv) => sum + (inv.charges?.total || 0), 0);
       
       setStats({
         mrr: mrr,
@@ -56,6 +77,19 @@ function SaaSRevenue() {
         { month: 'Mar', revenue: mrr, schools: active.length },
       ];
       setRevenueData(monthlyData);
+      
+      const recentTx = validInvoices
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 10)
+        .map(inv => ({
+          id: inv._id,
+          schoolName: inv.schoolName,
+          plan: inv.subscription?.plan || 'Free',
+          amount: inv.charges?.total || 0,
+          date: inv.paidDate || inv.dueDate || inv.createdAt,
+          status: inv.status
+        }));
+      setTransactions(recentTx);
     } catch (err) {
       console.error('Failed to load revenue data');
     } finally {
@@ -231,46 +265,47 @@ function SaaSRevenue() {
           <h3 className="text-lg font-bold text-slate-900">Recent Transactions</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">School</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Plan</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              <tr className="hover:bg-slate-50">
-                <td className="px-6 py-4 font-medium text-gray-900">Beaconhouse School System</td>
-                <td className="px-6 py-4 text-gray-600">Enterprise</td>
-                <td className="px-6 py-4 font-semibold text-gray-900">{formatPKR(50000)}</td>
-                <td className="px-6 py-4 text-gray-600">Mar 1, 2026</td>
-                <td className="px-6 py-4">
-                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Paid</span>
-                </td>
-              </tr>
-              <tr className="hover:bg-slate-50">
-                <td className="px-6 py-4 font-medium text-gray-900">Roots School System</td>
-                <td className="px-6 py-4 text-gray-600">Professional</td>
-                <td className="px-6 py-4 font-semibold text-gray-900">{formatPKR(25000)}</td>
-                <td className="px-6 py-4 text-gray-600">Mar 5, 2026</td>
-                <td className="px-6 py-4">
-                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Paid</span>
-                </td>
-              </tr>
-              <tr className="hover:bg-slate-50">
-                <td className="px-6 py-4 font-medium text-gray-900">Lahore Grammar School</td>
-                <td className="px-6 py-4 text-gray-600">Starter</td>
-                <td className="px-6 py-4 font-semibold text-gray-900">{formatPKR(10000)}</td>
-                <td className="px-6 py-4 text-gray-600">Mar 10, 2026</td>
-                <td className="px-6 py-4">
-                  <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">Pending</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          {transactions.length === 0 ? (
+            <div className="p-12 text-center">
+              <p className="text-slate-500">No transactions yet</p>
+              <p className="text-sm text-slate-400">Payments will appear here when schools pay their invoices</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">School</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Plan</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Date</th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {transactions.map((tx) => (
+                  <tr key={tx.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 font-medium text-gray-900">{tx.schoolName}</td>
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">{tx.plan}</span>
+                    </td>
+                    <td className="px-6 py-4 text-right font-semibold text-gray-900">{formatPKR(tx.amount)}</td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {new Date(tx.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        tx.status === 'Paid' ? 'bg-green-100 text-green-700' :
+                        tx.status === 'Pending' || tx.status === 'Sent' || tx.status === 'Generated' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {tx.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

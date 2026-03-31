@@ -26,6 +26,7 @@ function StudentAdmission() {
   };
   const [savedStudent, setSavedStudent] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageErrors, setPageErrors] = useState({});
 
   const [formData, setFormData] = useState({
     admission: {
@@ -154,7 +155,6 @@ function StudentAdmission() {
   });
 
   const [classGrades, setClassGrades] = useState([]);
-  const [classWarning, setClassWarning] = useState('');
   const [schoolSettings, setSchoolSettings] = useState(null);
 
   useEffect(() => {
@@ -215,7 +215,70 @@ function StudentAdmission() {
     return age.toString();
   };
 
+  const formatBForm = (value) => {
+    const digits = value.replace(/\D/g, '').slice(0, 13);
+    if (digits.length <= 5) return digits;
+    if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12, 13)}`;
+  };
+
+  const handleBirthCertChange = (value) => {
+    const formatted = formatBForm(value);
+    handleChange('student', 'birthCertNo', formatted);
+  };
+
+  const validatePage = (page) => {
+    const errors = {};
+    
+    if (page === 1) {
+      if (!formData.admission.classGrade) {
+        errors.classGrade = 'Please select a class';
+      }
+    }
+    
+    if (page === 2) {
+      if (!formData.student.fullName?.trim()) {
+        errors.fullName = 'Student name is required';
+      }
+      if (!formData.student.dateOfBirth) {
+        errors.dateOfBirth = 'Date of birth is required';
+      }
+      if (!formData.student.gender) {
+        errors.gender = 'Gender is required';
+      }
+      if (!formData.student.nationality?.trim()) {
+        errors.nationality = 'Nationality is required';
+      }
+    }
+    
+    if (page === 3) {
+      if (!formData.father.fullName?.trim()) {
+        errors.fatherName = "Father's name is required";
+      }
+      if (!formData.father.mobile?.trim()) {
+        errors.fatherMobile = "Father's mobile number is required";
+      }
+    }
+    
+    if (page === 4) {
+      if (!formData.currentAddress.city?.trim()) {
+        errors.city = 'City is required';
+      }
+    }
+    
+    return errors;
+  };
+
+  const clearFieldError = (field) => {
+    setPageErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[field];
+      return newErrors;
+    });
+  };
+
   const handleChange = (section, field, value) => {
+    clearFieldError(field);
     setFormData(prev => ({
       ...prev,
       [section]: {
@@ -228,8 +291,9 @@ function StudentAdmission() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.admission.classGrade) {
-      setClassWarning('Please select a class before submitting');
+    const errors = validatePage(1);
+    if (Object.keys(errors).length > 0) {
+      setPageErrors(errors);
       setCurrentPage(1);
       return;
     }
@@ -334,21 +398,24 @@ function StudentAdmission() {
 
   const goToPage = (page) => {
     if (page >= 1 && page <= TOTAL_PAGES) {
-      if (currentPage === 1 && !formData.admission.classGrade) {
-        setClassWarning('Please select a class before proceeding');
+      const errors = validatePage(currentPage);
+      if (Object.keys(errors).length > 0) {
+        setPageErrors(errors);
         return;
       }
+      setPageErrors({});
       setCurrentPage(page);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const nextPage = () => {
-    if (currentPage === 1 && !formData.admission.classGrade) {
-      setClassWarning('Please select a class before proceeding');
+    const errors = validatePage(currentPage);
+    if (Object.keys(errors).length > 0) {
+      setPageErrors(errors);
       return;
     }
-    setClassWarning('');
+    setPageErrors({});
     if (currentPage < TOTAL_PAGES) {
       setCurrentPage(currentPage + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -545,9 +612,9 @@ function StudentAdmission() {
                           value={formData.admission.classGrade}
                           onChange={(e) => {
                             handleChange('admission', 'classGrade', e.target.value);
-                            setClassWarning('');
+                            clearFieldError('classGrade');
                           }}
-                          className={`w-full px-4 py-2.5 bg-white border rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${classWarning ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
+                          className={`w-full px-4 py-2.5 bg-white border rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${pageErrors.classGrade ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                         >
                           <option value="">Select Class</option>
                           {classGrades.map(grade => (
@@ -556,9 +623,9 @@ function StudentAdmission() {
                             </option>
                           ))}
                         </select>
-                        {classWarning && (
+                        {pageErrors.classGrade && (
                           <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                            <AlertCircle size={14} /> {classWarning}
+                            <AlertCircle size={14} /> {pageErrors.classGrade}
                           </p>
                         )}
                       </div>
@@ -595,9 +662,10 @@ function StudentAdmission() {
                             required
                             value={formData.student.fullName}
                             onChange={(e) => handleChange('student', 'fullName', e.target.value)}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            className={`w-full px-4 py-2.5 bg-white border rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${pageErrors.fullName ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                             placeholder="Enter full name as per B-Form"
                           />
+                          {pageErrors.fullName && <p className="text-red-500 text-xs mt-1">{pageErrors.fullName}</p>}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1.5">Name in Urdu</label>
@@ -633,8 +701,9 @@ function StudentAdmission() {
                               handleChange('student', 'dateOfBirth', e.target.value);
                               handleChange('student', 'age', calculateAge(e.target.value));
                             }}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            className={`w-full px-4 py-2.5 bg-white border rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${pageErrors.dateOfBirth ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                           />
+                          {pageErrors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{pageErrors.dateOfBirth}</p>}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1.5">Age</label>
@@ -687,29 +756,36 @@ function StudentAdmission() {
                               <label key={g.value} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-all ${
                                 formData.student.gender === g.value 
                                   ? 'bg-indigo-50 border-indigo-300 text-indigo-700' 
-                                  : 'bg-white border-slate-200 hover:bg-slate-50'
+                                  : pageErrors.gender
+                                    ? 'bg-white border-red-300 hover:bg-red-50'
+                                    : 'bg-white border-slate-200 hover:bg-slate-50'
                               }`}>
                                 <input
                                   type="radio"
                                   name="gender"
                                   value={g.value}
                                   checked={formData.student.gender === g.value}
-                                  onChange={(e) => handleChange('student', 'gender', e.target.value)}
+                                  onChange={(e) => {
+                                    clearFieldError('gender');
+                                    handleChange('student', 'gender', e.target.value);
+                                  }}
                                   className="sr-only"
                                 />
                                 <span className="text-sm font-medium">{g.label}</span>
                               </label>
                             ))}
                           </div>
+                          {pageErrors.gender && <p className="text-red-500 text-xs mt-1">{pageErrors.gender}</p>}
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1.5">Nationality</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1.5">Nationality <span className="text-red-500">*</span></label>
                           <input
                             type="text"
                             value={formData.student.nationality}
                             onChange={(e) => handleChange('student', 'nationality', e.target.value)}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            className={`w-full px-4 py-2.5 bg-white border rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${pageErrors.nationality ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                           />
+                          {pageErrors.nationality && <p className="text-red-500 text-xs mt-1">{pageErrors.nationality}</p>}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1.5">Religion</label>
@@ -728,10 +804,12 @@ function StudentAdmission() {
                           <input
                             type="text"
                             value={formData.student.birthCertNo}
-                            onChange={(e) => handleChange('student', 'birthCertNo', e.target.value)}
+                            onChange={(e) => handleBirthCertChange(e.target.value)}
+                            maxLength={15}
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                             placeholder="XXXXX-XXXXXXX-X"
                           />
+                          <p className="text-xs text-slate-500 mt-1">13 digits (e.g., 12345-1234567-1)</p>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1.5">Student Photo</label>
@@ -787,8 +865,9 @@ function StudentAdmission() {
                           type="text"
                           value={formData.father.fullName}
                           onChange={(e) => handleChange('father', 'fullName', e.target.value)}
-                          className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                          className={`w-full px-3 py-2.5 bg-white border rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${pageErrors.fatherName ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                         />
+                        {pageErrors.fatherName && <p className="text-red-500 text-xs mt-1">{pageErrors.fatherName}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">CNIC No</label>
@@ -842,9 +921,10 @@ function StudentAdmission() {
                           type="tel"
                           value={formData.father.mobile}
                           onChange={(e) => handleChange('father', 'mobile', e.target.value)}
-                          className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                          className={`w-full px-3 py-2.5 bg-white border rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${pageErrors.fatherMobile ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                           placeholder="03XX-XXXXXXX"
                         />
+                        {pageErrors.fatherMobile && <p className="text-red-500 text-xs mt-1">{pageErrors.fatherMobile}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">WhatsApp No</label>
@@ -1031,8 +1111,9 @@ function StudentAdmission() {
                           required
                           value={formData.currentAddress.city}
                           onChange={(e) => handleChange('currentAddress', 'city', e.target.value)}
-                          className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                          className={`w-full px-3 py-2.5 bg-white border rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${pageErrors.city ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                         />
+                        {pageErrors.city && <p className="text-red-500 text-xs mt-1">{pageErrors.city}</p>}
                       </div>
                     </div>
                   </div>

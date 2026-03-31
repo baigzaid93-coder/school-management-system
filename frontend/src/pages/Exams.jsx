@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, FileText, Calendar, Users, BookOpen, ClipboardCheck, Download } from 'lucide-react';
+import api from '../services/api';
 import useToast from '../hooks/useToast';
+import ReportCardModal from '../components/ReportCardModal';
 
 function Exams() {
   const toast = useToast();
@@ -13,6 +15,7 @@ function Exams() {
   const [selectedClass, setSelectedClass] = useState('');
   const [showExamModal, setShowExamModal] = useState(false);
   const [showMarksModal, setShowMarksModal] = useState(false);
+  const [showReportCardModal, setShowReportCardModal] = useState(false);
   const [selectedExam, setSelectedExam] = useState(null);
   const [editingExam, setEditingExam] = useState(null);
   const [examMarks, setExamMarks] = useState([]);
@@ -45,21 +48,17 @@ function Exams() {
       setLoading(true);
       
       const [classesRes, examTypesRes, subjectsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/class-grades'),
-        fetch('http://localhost:5000/api/settings/exam-types'),
-        fetch('http://localhost:5000/api/settings/subjects')
+        api.get('/class-grades'),
+        api.get('/settings/exam-types'),
+        api.get('/settings/subjects')
       ]);
       
-      const classesData = await classesRes.json();
-      const examTypesData = await examTypesRes.json();
-      const subjectsData = await subjectsRes.json();
+      setClassGrades(Array.isArray(classesRes.data) ? classesRes.data : []);
+      setExamTypes(Array.isArray(examTypesRes.data) ? examTypesRes.data : []);
+      setSubjects(Array.isArray(subjectsRes.data) ? subjectsRes.data : []);
       
-      setClassGrades(Array.isArray(classesData) ? classesData : []);
-      setExamTypes(Array.isArray(examTypesData) ? examTypesData : []);
-      setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
-      
-      if (classesData.length > 0) {
-        setSelectedClass(classesData[0]._id);
+      if (classesRes.data.length > 0) {
+        setSelectedClass(classesRes.data[0]._id);
       }
     } catch (err) {
       console.error('Failed to load data:', err);
@@ -70,18 +69,26 @@ function Exams() {
 
   const loadExamsByClass = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/exams?classGrade=${selectedClass}`);
+      const token = localStorage.getItem('accessToken');
+      const schoolId = localStorage.getItem('currentSchoolId');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      if (schoolId) headers['x-school-id'] = schoolId;
+      
+      console.log('Loading exams for class:', selectedClass);
+      const response = await fetch(`/api/exams?classGrade=${selectedClass}`, { headers });
       const data = await response.json();
+      console.log('Exams response:', data);
       setExams(Array.isArray(data) ? data : []);
     } catch (err) {
+      console.error('Failed to load exams:', err);
       setExams([]);
     }
   };
 
   const loadStudentsByClass = async (classId) => {
     try {
-      const response = await fetch('http://localhost:5000/api/students');
-      const data = await response.json();
+      const response = await api.get('/students/all?all=true');
+      const data = response.data;
       const studentsList = data.students || data || [];
       const classStudents = studentsList.filter(s => 
         s.classGrade === classId || s.classGrade?._id === classId
@@ -96,32 +103,24 @@ function Exams() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const schoolId = localStorage.getItem('currentSchoolId');
-      const method = editingExam ? 'PUT' : 'POST';
-      const url = editingExam 
-        ? `http://localhost:5000/api/exams/${editingExam._id}`
-        : 'http://localhost:5000/api/exams';
+      let response;
+      if (editingExam) {
+        response = await api.put(`/exams/${editingExam._id}`, formData);
+      } else {
+        response = await api.post('/exams', formData);
+      }
       
-      const response = await fetch(url, {
-        method,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        },
-        body: JSON.stringify({ ...formData, school: schoolId })
-      });
-      
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         setShowExamModal(false);
         resetForm();
-        loadExamsByClass();
-        toast.success('Exam saved successfully');
+        console.log('Exam saved:', response.data);
+        await loadExamsByClass();
+        toast.showToast('Exam saved successfully', 'success');
       } else {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to save exam');
+        toast.showToast(response.data?.message || 'Failed to save exam', 'error');
       }
     } catch (err) {
-      toast.error('Failed to save exam');
+      toast.showToast('Failed to save exam', 'error');
     }
   };
 
@@ -142,11 +141,16 @@ function Exams() {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure?')) return;
     try {
-      await fetch(`http://localhost:5000/api/exams/${id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('accessToken');
+      const schoolId = localStorage.getItem('currentSchoolId');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      if (schoolId) headers['x-school-id'] = schoolId;
+      
+      await fetch(`/api/exams/${id}`, { method: 'DELETE', headers });
       loadExamsByClass();
-      toast.success('Exam deleted successfully');
+      toast.showToast('Exam deleted successfully', 'success');
     } catch (err) {
-      toast.error('Failed to delete');
+      toast.showToast('Failed to delete', 'error');
     }
   };
 
@@ -154,17 +158,52 @@ function Exams() {
     setSelectedExam(exam);
     const classStudents = await loadStudentsByClass(exam.classGrade?._id || exam.classGrade);
     
-    setExamMarks(classStudents.map(s => ({
-      student: s._id,
-      studentName: `${s.firstName} ${s.lastName}`,
-      studentId: s.studentId,
-      marksObtained: '',
-      isAbsent: false,
-      maxMarks: exam.subjects?.[0]?.maxMarks || 100
-    })));
+    // Fetch existing marks for this exam
+    let existingMarks = [];
+    try {
+      const token = localStorage.getItem('accessToken');
+      const schoolId = localStorage.getItem('currentSchoolId');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      if (schoolId) headers['x-school-id'] = schoolId;
+      
+      const response = await fetch(`/api/marks/exam/${exam._id}`, { headers });
+      if (response.ok) {
+        existingMarks = await response.json();
+        console.log('Existing marks loaded:', existingMarks.length);
+      }
+    } catch (err) {
+      console.error('Failed to load existing marks:', err);
+    }
+    
+    setExamMarks(classStudents.map(s => {
+      // Find existing mark for first subject
+      const firstSubject = exam.subjects?.[0]?.subject;
+      const firstSubjectId = typeof firstSubject === 'object' ? firstSubject?._id : firstSubject;
+      
+      // Find mark by student ID (compare as strings)
+      const studentId = s._id.toString();
+      const existing = existingMarks.find(m => {
+        const markStudentId = (m.student?._id || m.student || '').toString();
+        const markSubjectId = (m.subject?._id || m.subject || '').toString();
+        return markStudentId === studentId && 
+               (firstSubjectId ? markSubjectId === firstSubjectId.toString() : true);
+      });
+      
+      return {
+        student: s._id,
+        studentName: `${s.firstName} ${s.lastName}`,
+        studentId: s.studentId,
+        marksObtained: existing ? existing.marksObtained.toString() : '',
+        isAbsent: existing ? existing.isAbsent : false,
+        maxMarks: existing?.maxMarks || exam.subjects?.[0]?.maxMarks || 100,
+        markId: existing?._id
+      };
+    }));
     
     setMarkFormData({
-      subject: exam.subjects?.[0]?.subject?._id || '',
+      subject: typeof exam.subjects?.[0]?.subject === 'object' 
+        ? exam.subjects?.[0]?.subject?._id 
+        : exam.subjects?.[0]?.subject || '',
       maxMarks: exam.subjects?.[0]?.maxMarks || 100
     });
     
@@ -173,6 +212,18 @@ function Exams() {
 
   const handleSaveMarks = async () => {
     try {
+      // Validate marks don't exceed max
+      const maxMarks = parseFloat(markFormData.maxMarks);
+      for (const mark of examMarks) {
+        if (mark.marksObtained !== '' && !mark.isAbsent) {
+          const marks = parseFloat(mark.marksObtained);
+          if (marks > maxMarks) {
+            toast.showToast(`Mark for ${mark.studentName} exceeds maximum (${maxMarks})`, 'error');
+            return;
+          }
+        }
+      }
+      
       const marksToSave = examMarks
         .filter(m => m.marksObtained !== '' || m.isAbsent)
         .map(m => ({
@@ -181,32 +232,42 @@ function Exams() {
           subject: markFormData.subject || selectedExam.subjects?.[0]?.subject,
           classGrade: selectedClass,
           marksObtained: m.isAbsent ? 0 : parseFloat(m.marksObtained),
-          maxMarks: parseFloat(markFormData.maxMarks),
+          maxMarks: maxMarks,
           isAbsent: m.isAbsent,
           academicYear: new Date().getFullYear().toString()
         }));
 
       if (marksToSave.length === 0) {
-        toast.error('Please enter at least one mark');
+        toast.showToast('Please enter at least one mark', 'error');
         return;
       }
 
-      await fetch('http://localhost:5000/api/marks/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ marks: marksToSave })
-      });
+      await api.post('/marks/bulk', { marks: marksToSave });
 
       setShowMarksModal(false);
-      toast.success('Marks saved successfully!');
+      toast.showToast('Marks saved successfully!', 'success');
     } catch (err) {
-      toast.error('Failed to save marks');
+      toast.showToast('Failed to save marks', 'error');
     }
   };
 
   const updateMark = (index, field, value) => {
     const updated = [...examMarks];
-    updated[index][field] = value;
+    
+    if (field === 'marksObtained') {
+      const numValue = parseFloat(value);
+      const maxMarks = parseFloat(markFormData.maxMarks);
+      
+      if (!isNaN(numValue) && numValue > maxMarks) {
+        toast.showToast(`Marks cannot exceed ${maxMarks}`, 'warning');
+        updated[index][field] = maxMarks.toString();
+      } else {
+        updated[index][field] = value;
+      }
+    } else {
+      updated[index][field] = value;
+    }
+    
     if (field === 'isAbsent' && value) {
       updated[index].marksObtained = '';
     }
@@ -242,6 +303,218 @@ function Exams() {
     return 'text-red-600';
   };
 
+  const openReportCard = async (exam) => {
+    setSelectedExam(exam);
+    setShowReportCardModal(true);
+  };
+
+  const generateReportCard = async (studentId) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const schoolId = localStorage.getItem('currentSchoolId');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      if (schoolId) headers['x-school-id'] = schoolId;
+      
+      const response = await fetch(`/api/marks/exam/${selectedExam._id}`, { headers });
+      const marks = await response.json();
+      
+      const studentMarks = marks.filter(m => m.student?._id === studentId || m.student === studentId);
+      
+      if (studentMarks.length === 0) {
+        toast.showToast('No marks found for this student', 'warning');
+        return;
+      }
+      
+      const totalMarks = studentMarks.reduce((sum, m) => sum + (m.marksObtained || 0), 0);
+      const totalMax = studentMarks.reduce((sum, m) => sum + (m.maxMarks || 100), 0);
+      const percentage = totalMax > 0 ? ((totalMarks / totalMax) * 100).toFixed(1) : 0;
+      
+      const studentName = studentMarks[0].student?.firstName + ' ' + studentMarks[0].student?.lastName;
+      
+      let grade = '';
+      if (percentage >= 90) grade = 'A+';
+      else if (percentage >= 80) grade = 'A';
+      else if (percentage >= 70) grade = 'B';
+      else if (percentage >= 60) grade = 'C';
+      else if (percentage >= 50) grade = 'D';
+      else grade = 'F';
+      
+      const reportContent = `
+        <html>
+        <head>
+          <title>Report Card - ${selectedExam.name}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .student-info { margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            th { background-color: #f5f5f5; }
+            .summary { text-align: right; font-size: 18px; font-weight: bold; }
+            .grade { font-size: 24px; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${selectedExam.name}</h1>
+            <p>Class: ${selectedExam.classGrade?.name || 'N/A'}</p>
+            <p>Date: ${new Date().toLocaleDateString()}</p>
+          </div>
+          <div class="student-info">
+            <h3>Student: ${studentName}</h3>
+            <p>Student ID: ${studentMarks[0].student?.studentId || 'N/A'}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Marks Obtained</th>
+                <th>Max Marks</th>
+                <th>Percentage</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${studentMarks.map(m => {
+                const pct = m.maxMarks > 0 ? ((m.marksObtained / m.maxMarks) * 100).toFixed(1) : 0;
+                return `<tr>
+                  <td>${m.subject?.name || 'N/A'}</td>
+                  <td>${m.marksObtained}</td>
+                  <td>${m.maxMarks}</td>
+                  <td>${pct}%</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+          <div class="summary">
+            <p>Total: ${totalMarks} / ${totalMax}</p>
+            <p>Percentage: ${percentage}%</p>
+          </div>
+          <div class="grade">
+            <p>Grade: ${grade}</p>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(reportContent);
+      printWindow.document.close();
+      printWindow.print();
+    } catch (err) {
+      toast.showToast('Failed to generate report card', 'error');
+    }
+  };
+
+  const printAllReportCards = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const schoolId = localStorage.getItem('currentSchoolId');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      if (schoolId) headers['x-school-id'] = schoolId;
+      
+      const response = await fetch(`/api/marks/exam/${selectedExam._id}`, { headers });
+      const marks = await response.json();
+      
+      if (marks.length === 0) {
+        toast.showToast('No marks found', 'warning');
+        return;
+      }
+      
+      const studentIds = [...new Set(marks.map(m => m.student?._id || m.student))];
+      const studentNames = {};
+      
+      marks.forEach(m => {
+        if (m.student?._id) {
+          studentNames[m.student._id] = {
+            name: `${m.student.firstName} ${m.student.lastName}`,
+            studentId: m.student.studentId
+          };
+        }
+      });
+      
+      let reportContent = `
+        <html>
+        <head>
+          <title>Report Cards - ${selectedExam.name}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            .page-break { page-break-after: always; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .student-info { margin-bottom: 15px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; }
+            .summary { text-align: right; font-weight: bold; }
+            .grade { font-size: 20px; text-align: center; }
+          </style>
+        </head>
+        <body>
+      `;
+      
+      studentIds.forEach((studentId, index) => {
+        const studentMarks = marks.filter(m => (m.student?._id || m.student) === studentId);
+        const studentData = studentNames[studentId] || { name: 'N/A', studentId: 'N/A' };
+        
+        const totalMarks = studentMarks.reduce((sum, m) => sum + (m.marksObtained || 0), 0);
+        const totalMax = studentMarks.reduce((sum, m) => sum + (m.maxMarks || 100), 0);
+        const percentage = totalMax > 0 ? ((totalMarks / totalMax) * 100).toFixed(1) : 0;
+        
+        let grade = '';
+        if (percentage >= 90) grade = 'A+';
+        else if (percentage >= 80) grade = 'A';
+        else if (percentage >= 70) grade = 'B';
+        else if (percentage >= 60) grade = 'C';
+        else if (percentage >= 50) grade = 'D';
+        else grade = 'F';
+        
+        reportContent += `
+          ${index > 0 ? '<div class="page-break"></div>' : ''}
+          <div class="header">
+            <h2>${selectedExam.name}</h2>
+            <p>Class: ${selectedExam.classGrade?.name || 'N/A'}</p>
+          </div>
+          <div class="student-info">
+            <h3>Student: ${studentData.name}</h3>
+            <p>ID: ${studentData.studentId}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Marks</th>
+                <th>Max</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${studentMarks.map(m => {
+                const pct = m.maxMarks > 0 ? ((m.marksObtained / m.maxMarks) * 100).toFixed(1) : 0;
+                return `<tr>
+                  <td>${m.subject?.name || 'N/A'}</td>
+                  <td>${m.marksObtained}</td>
+                  <td>${m.maxMarks}</td>
+                  <td>${pct}%</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+          <div class="summary">
+            <p>Total: ${totalMarks} / ${totalMax} | ${percentage}% | Grade: ${grade}</p>
+          </div>
+        `;
+      });
+      
+      reportContent += '</body></html>';
+      
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(reportContent);
+      printWindow.document.close();
+      printWindow.print();
+    } catch (err) {
+      toast.showToast('Failed to generate report cards', 'error');
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center h-64">
@@ -258,7 +531,15 @@ function Exams() {
           <p className="text-gray-500">Manage exams and record student marks</p>
         </div>
         <button
-          onClick={() => { resetForm(); setFormData({ ...formData, classGrade: selectedClass }); setShowExamModal(true); }}
+          onClick={() => { 
+            if (!selectedClass) {
+              toast.showToast('Please select a class first', 'warning');
+              return;
+            }
+            resetForm(); 
+            setFormData(prev => ({ ...prev, classGrade: selectedClass })); 
+            setShowExamModal(true); 
+          }}
           className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus size={18} /> Create Exam
@@ -339,6 +620,13 @@ function Exams() {
                   className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
                 >
                   <ClipboardCheck size={14} /> Enter Marks
+                </button>
+                <button
+                  onClick={() => openReportCard(exam)}
+                  className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg"
+                  title="Report Card"
+                >
+                  <FileText size={16} />
                 </button>
                 <button
                   onClick={() => handleEdit(exam)}
@@ -529,6 +817,13 @@ function Exams() {
             </div>
           </div>
         </div>
+      )}
+
+      {showReportCardModal && selectedExam && (
+        <ReportCardModal 
+          exam={selectedExam} 
+          onClose={() => setShowReportCardModal(false)} 
+        />
       )}
     </div>
   );

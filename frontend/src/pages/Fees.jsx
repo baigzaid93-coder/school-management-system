@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, Trash2, X, DollarSign, Check, AlertCircle, FileDown, Download, Search, Filter, BookOpen, Calculator, Calendar, UsersRound } from 'lucide-react';
-import { feeService, studentService, classGradeService } from '../services/api';
-import { generateFeeVoucherPDF, generateFamilyChallanPDF } from '../utils/pdfGenerator';
+import { Plus, Edit2, Trash2, X, DollarSign, Check, AlertCircle, FileDown, Download, Search, Filter, BookOpen, Calculator, Calendar, UsersRound, FileText } from 'lucide-react';
+import api, { feeService, studentService, classGradeService } from '../services/api';
+import { generateFeeVoucherPDF, generateFamilyChallanPDF, generateBulkFeeVouchersPDF } from '../utils/pdfGenerator';
 import useToast from '../hooks/useToast';
 
 const printStyles = `
@@ -91,6 +91,9 @@ function Fees() {
     dueDate: '',
     description: ''
   });
+  
+  const [selectedFees, setSelectedFees] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
 
   const availableFeeTypes = [
     { id: 'Monthly Tuition', label: 'Monthly Tuition', defaultAmount: 5000 },
@@ -259,30 +262,19 @@ function Fees() {
     setCalculating(true);
     
     try {
-      const schoolId = localStorage.getItem('currentSchoolId');
-      const response = await fetch('http://localhost:5000/api/fees/calculate-monthly', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'x-school-id': schoolId || ''
-        },
-        body: JSON.stringify({
-          month: calculateData.month,
-          selectedFeeTypes: calculateData.selectedFeeTypes,
-          feeAmounts: calculateData.feeAmounts,
-          dueDay: calculateData.dueDay
-        })
+      const response = await api.post('/fees/calculate-monthly', {
+        month: calculateData.month,
+        selectedFeeTypes: calculateData.selectedFeeTypes,
+        feeAmounts: calculateData.feeAmounts,
+        dueDay: calculateData.dueDay
       });
       
-      const result = await response.json();
-      
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         setShowCalculateModal(false);
         loadData();
-        showToast(`Successfully created ${result.created} fee records for ${calculateData.month}`, 'success');
+        showToast(`Successfully created ${response.data.created} fee records for ${calculateData.month}`, 'success');
       } else {
-        showToast(result.message || 'Failed to calculate fees', 'error');
+        showToast(response.data.message || 'Failed to calculate fees', 'error');
       }
     } catch (err) {
       console.error('Calculate fees error:', err);
@@ -624,6 +616,78 @@ function Fees() {
     setSearchResults([]);
   };
 
+  const handleSelectAllFees = () => {
+    if (selectAll) {
+      setSelectedFees([]);
+      setSelectAll(false);
+    } else {
+      setSelectedFees(filteredFees.map(f => f._id));
+      setSelectAll(true);
+    }
+  };
+
+  const handleSelectFee = (feeId) => {
+    if (selectedFees.includes(feeId)) {
+      setSelectedFees(selectedFees.filter(id => id !== feeId));
+    } else {
+      setSelectedFees([...selectedFees, feeId]);
+    }
+  };
+
+  const handleCleanupOrphanFees = async () => {
+    if (!confirm('This will delete fee records with invalid student references. Continue?')) return;
+    
+    try {
+      const response = await api.post('/fees/cleanup-orphans');
+      if (response.status === 200 || response.status === 201) {
+        showToast(`Cleaned up ${response.data.deleted} orphan fee records`, 'success');
+        loadData();
+      } else {
+        showToast(response.data.message || 'Cleanup failed', 'error');
+      }
+    } catch (err) {
+      showToast('Failed to cleanup orphan fees', 'error');
+    }
+  };
+
+  const handleBulkDownload = async () => {
+    if (selectedFees.length === 0) {
+      showToast('Please select at least one fee record to download', 'warning');
+      return;
+    }
+    
+    try {
+      const selectedFeeRecords = filteredFees.filter(f => selectedFees.includes(f._id));
+      
+      const feesData = selectedFeeRecords.map(fee => ({
+        student: {
+          fullName: fee.student?.firstName && fee.student?.lastName 
+            ? `${fee.student.firstName} ${fee.student.lastName}` 
+            : fee.student?.fullName || '-',
+          studentId: fee.student?.studentId || fee.studentId || '-',
+          classGrade: fee.student?.classGrade?.name || fee.classGrade?.name || '-',
+          fatherName: fee.student?.parentName || '-',
+          phone: fee.student?.phone || fee.student?.parentPhone || '-',
+          familyNumber: fee.student?.familyNumber || ''
+        },
+        fees: [{
+          voucherNumber: fee.voucherNumber,
+          feeType: fee.feeType,
+          amount: fee.amount,
+          paidAmount: fee.paidAmount,
+          dueDate: fee.dueDate,
+          createdAt: fee.createdAt
+        }]
+      }));
+      
+      await generateBulkFeeVouchersPDF(feesData);
+      showToast(`Downloaded ${selectedFees.length} fee vouchers`, 'success');
+    } catch (err) {
+      console.error('Error generating bulk vouchers:', err);
+      showToast('Failed to generate bulk vouchers', 'error');
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -657,17 +721,23 @@ function Fees() {
           <h1 className="text-2xl font-bold text-gray-800">Fees</h1>
           <p className="text-gray-500">Manage student fees and payments</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          {selectedFees.length > 0 && (
+            <button onClick={handleBulkDownload}
+              className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 shadow-sm">
+              <FileText size={18} /> Download Selected ({selectedFees.length})
+            </button>
+          )}
           <button onClick={() => setShowCalculateModal(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm">
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm">
             <Calculator size={18} /> Calculate Monthly Fees
           </button>
           <button onClick={handleOpenFamilyVoucher}
-            className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 shadow-sm">
+            className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 shadow-sm">
             <UsersRound size={18} /> Create Family Voucher
           </button>
           <button onClick={() => { resetForm(); setShowModal(true); }}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm">
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm">
             <Plus size={18} /> Add Fee
           </button>
         </div>
@@ -743,6 +813,13 @@ function Fees() {
           >
             Clear Filters
           </button>
+          <button
+            onClick={handleCleanupOrphanFees}
+            className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm"
+            title="Remove orphan fee records"
+          >
+            Cleanup Orphans
+          </button>
         </div>
       </div>
 
@@ -805,14 +882,21 @@ function Fees() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={selectAll}
+                      onChange={handleSelectAllFees}
+                      className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Voucher #</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Roll No</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Student Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Class</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase hidden md:table-cell">Class</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase hidden lg:table-cell">Type</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Amount</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Paid</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Due Date</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase hidden sm:table-cell">Paid</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
                 </tr>
@@ -822,9 +906,18 @@ function Fees() {
                   const student = students.find(s => s._id === (fee.student?._id || fee.student));
                   const classGrade = student?.classGrade ? classGrades.find(cg => cg._id === (student.classGrade._id || student.classGrade)) : null;
                   const isFamilyVoucher = fee.feeType === 'Family' && fee.familyNumber;
+                  const isSelected = selectedFees.includes(fee._id);
                   
                   return (
-                    <tr key={fee._id} className={`hover:bg-gray-50 ${isFamilyVoucher ? 'bg-amber-50' : ''}`}>
+                    <tr key={fee._id} className={`hover:bg-gray-50 ${isFamilyVoucher ? 'bg-amber-50' : ''} ${isSelected ? 'bg-blue-50' : ''}`}>
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleSelectFee(fee._id)}
+                          className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                      </td>
                       <td className="px-4 py-4">
                         <span className="font-mono text-xs font-medium text-gray-700 bg-gray-100 px-2 py-1 rounded">
                           {fee.voucherNumber || '-'}
@@ -851,7 +944,7 @@ function Fees() {
                           <p className="font-medium">{fee.student?.firstName} {fee.student?.lastName}</p>
                         )}
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 hidden md:table-cell">
                         {isFamilyVoucher ? (
                           <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs font-medium">
                             Family
@@ -864,11 +957,10 @@ function Fees() {
                           <span className="text-gray-400 text-sm">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-sm">{fee.feeType}</td>
+                      <td className="px-4 py-4 text-sm hidden lg:table-cell">{fee.feeType}</td>
                       <td className="px-4 py-4 text-sm text-right font-medium">PKR {fee.amount?.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-sm text-right text-green-600">PKR {fee.paidAmount?.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-sm">{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : 'N/A'}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 text-sm text-right text-green-600 hidden sm:table-cell">PKR {fee.paidAmount?.toLocaleString()}</td>
+                      <td className="px-4 py-4 hidden sm:table-cell">
                         <span className={`px-2 py-1 rounded text-xs ${getStatusColor(fee.status)}`}>{fee.status}</span>
                       </td>
                       <td className="px-4 py-4">

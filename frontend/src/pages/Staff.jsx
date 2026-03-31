@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, UsersRound, AlertCircle } from 'lucide-react';
+import api from '../services/api';
 import useToast from '../hooks/useToast';
 
 function Staff() {
@@ -27,15 +28,8 @@ function Staff() {
   const loadStaff = async () => {
     try {
       setLoading(true);
-      const schoolId = localStorage.getItem('currentSchoolId');
-      const response = await fetch('http://localhost:5000/api/staff', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'x-school-id': schoolId || ''
-        }
-      });
-      const data = await response.json();
-      setStaff(Array.isArray(data) ? data : []);
+      const response = await api.get('/staff');
+      setStaff(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
       setStaff([]);
     } finally {
@@ -53,21 +47,12 @@ function Staff() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const schoolId = localStorage.getItem('currentSchoolId');
-      const method = editingStaff ? 'PUT' : 'POST';
-      const url = editingStaff 
-        ? `http://localhost:5000/api/staff/${editingStaff._id}`
-        : 'http://localhost:5000/api/staff';
-      
-      await fetch(url, {
-        method,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'x-school-id': schoolId || ''
-        },
-        body: JSON.stringify({ ...formData, school: schoolId })
-      });
+      let response;
+      if (editingStaff) {
+        response = await api.put(`/staff/${editingStaff._id}`, formData);
+      } else {
+        response = await api.post('/staff', formData);
+      }
       
       setShowModal(false);
       resetForm();
@@ -95,7 +80,7 @@ function Staff() {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure?')) return;
     try {
-      await fetch(`http://localhost:5000/api/staff/${id}`, { method: 'DELETE' });
+      await api.delete(`/staff/${id}`);
       loadStaff();
       toast.success('Staff deleted successfully');
     } catch (err) {
