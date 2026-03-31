@@ -722,7 +722,12 @@ function Admissions() {
                     {modalMode === 'edit' && 'Edit Inquiry'}
                     {modalMode === 'convert' && 'Convert to Admission'}
                   </h2>
-                  <p className="text-sm text-gray-500">#{formData.inquiry?.inquiryNo || 'New'}</p>
+                  <div className="flex gap-4 text-sm text-gray-500">
+                    <span>Inquiry #: {formData.inquiry?.inquiryNo || 'New'}</span>
+                    {formData.registrationNumber && (
+                      <span className="font-medium text-green-600">Admission #: {formData.registrationNumber}</span>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -747,6 +752,7 @@ function Admissions() {
                     <InquirySection title="1. Inquiry Information" icon={FileText}>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <FormField label="Inquiry No" value={formData.inquiry?.inquiryNo} readonly />
+                        <FormField label="Admission No" value={formData.registrationNumber || '-'} readonly />
                         <FormField 
                           label="Inquiry Date" 
                           type="date"
