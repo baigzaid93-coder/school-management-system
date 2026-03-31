@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
+import { settingsService, letterHeadService } from '../services/api';
 import './StudentIDCard.css';
 
 const StudentIDCard = ({ student, schoolInfo, onClose }) => {
   const [showBack, setShowBack] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [barcodeValue] = useState(() => student?.studentId || 'SID' + Math.random().toString(36).substr(2, 9).toUpperCase());
+  const [schoolData, setSchoolData] = useState(null);
   
   const formatDate = (date) => {
     if (!date) return '-';
@@ -20,13 +22,50 @@ const StudentIDCard = ({ student, schoolInfo, onClose }) => {
   };
 
   useEffect(() => {
+    const fetchSchoolData = async () => {
+      try {
+        const [schoolRes, letterHeadRes] = await Promise.all([
+          settingsService.school.get(),
+          letterHeadService.get()
+        ]);
+        
+        const schoolSettings = schoolRes.data || {};
+        const letterHeadData = letterHeadRes.data || {};
+        
+        setSchoolData({
+          name: schoolSettings.name || 'School Name',
+          tagline: schoolSettings.tagline || schoolSettings.schoolTagline || '',
+          address: schoolSettings.address || '',
+          phone: schoolSettings.phone || '',
+          website: schoolSettings.website || '',
+          email: schoolSettings.email || '',
+          logo: letterHeadData.logo || schoolSettings.logo || null
+        });
+      } catch (err) {
+        console.error('Failed to fetch school data:', err);
+        setSchoolData({
+          name: schoolInfo?.name || 'School Name',
+          tagline: schoolInfo?.tagline || '',
+          address: schoolInfo?.address || '',
+          phone: schoolInfo?.phone || '',
+          website: schoolInfo?.website || '',
+          email: schoolInfo?.email || '',
+          logo: schoolInfo?.logo || null
+        });
+      }
+    };
+    
+    fetchSchoolData();
+  }, []);
+
+  useEffect(() => {
     const generateQR = async () => {
       if (student) {
         const qrData = JSON.stringify({
           id: student.studentId,
           name: `${student.firstName} ${student.lastName}`,
           class: student.classGrade?.name || '-',
-          school: schoolInfo?.name || 'School'
+          school: schoolData?.name || 'School'
         });
         try {
           const url = await QRCode.toDataURL(qrData, { width: 60, margin: 0 });
@@ -37,7 +76,7 @@ const StudentIDCard = ({ student, schoolInfo, onClose }) => {
       }
     };
     generateQR();
-  }, [student, schoolInfo]);
+  }, [student, schoolData]);
 
   const generateBarcode = () => {
     return barcodeValue.split('').map((char, i) => (
@@ -109,13 +148,14 @@ const StudentIDCard = ({ student, schoolInfo, onClose }) => {
     }
   };
 
-  const school = schoolInfo || {
-    name: 'International Grammar School',
-    tagline: 'Excellence in Education',
-    address: '123 Education Street, Main Boulevard, City - 12345',
-    phone: '+92 300 1234567',
-    website: 'www.grammarschool.edu',
-    email: 'info@grammarschool.edu'
+  const school = schoolData || schoolInfo || {
+    name: 'School Name',
+    tagline: '',
+    address: '',
+    phone: '',
+    website: '',
+    email: '',
+    logo: null
   };
 
   const studentData = {
