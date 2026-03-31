@@ -5,9 +5,9 @@ exports.getAll = async (req, res) => {
     const { academicYear, classGrade, section, status } = req.query;
     const query = { ...req.tenantQuery };
     if (academicYear) query.academicYear = academicYear;
-    if (classGrade) query.classGrade = classGrade;
-    if (section) query.section = section;
-    if (status) query.status = status;
+    if (classGrade && classGrade.trim()) query.classGrade = classGrade;
+    if (section && section.trim()) query.section = section;
+    if (status && status.trim()) query.status = status;
     
     const enrollments = await Enrollment.find(query)
       .populate('student', 'firstName lastName studentId')
@@ -44,7 +44,11 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const enrollment = await Enrollment.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const enrollment = await Enrollment.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!enrollment) return res.status(404).json({ message: 'Enrollment not found' });
     res.json(enrollment);
   } catch (error) {
@@ -54,7 +58,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const enrollment = await Enrollment.findByIdAndDelete(req.params.id);
+    const enrollment = await Enrollment.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!enrollment) return res.status(404).json({ message: 'Enrollment not found' });
     res.json({ message: 'Enrollment deleted successfully' });
   } catch (error) {

@@ -5,9 +5,9 @@ exports.getAll = async (req, res) => {
     const { academicYear, classGrade, section, status } = req.query;
     const query = { ...req.tenantQuery };
     if (academicYear) query.academicYear = academicYear;
-    if (classGrade) query.classGrade = classGrade;
-    if (section) query.section = section;
-    if (status) query.status = status;
+    if (classGrade && classGrade.trim()) query.classGrade = classGrade;
+    if (section && section.trim()) query.section = section;
+    if (status && status.trim()) query.status = status;
     
     console.log('getAll query:', query);
     
@@ -97,8 +97,9 @@ exports.delete = async (req, res) => {
 
 exports.activate = async (req, res) => {
   try {
-    await Timetable.updateMany({ classGrade: req.params.classId }, { status: 'Archived' });
-    const timetable = await Timetable.findById(req.params.id);
+    await Timetable.updateMany({ classGrade: req.params.classId, ...req.tenantQuery }, { status: 'Archived' });
+    const timetable = await Timetable.findOne({ _id: req.params.id, ...req.tenantQuery });
+    if (!timetable) return res.status(404).json({ message: 'Timetable not found' });
     timetable.status = 'Active';
     await timetable.save();
     res.json({ message: 'Timetable activated', timetable });

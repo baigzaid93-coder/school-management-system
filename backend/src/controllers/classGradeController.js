@@ -11,8 +11,8 @@ exports.getAll = async (req, res) => {
       .populate('sections', 'name capacity students teacher');
     
     const result = await Promise.all(classGrades.map(async (cg) => {
-      const students = await Student.find({ classGrade: cg._id, status: 'Active' });
-      const sections = await Section.find({ classGrade: cg._id }).populate('teacher', 'firstName lastName');
+      const students = await Student.find({ classGrade: cg._id, status: 'Active', ...req.tenantQuery });
+      const sections = await Section.find({ classGrade: cg._id, ...req.tenantQuery }).populate('teacher', 'firstName lastName');
       
       return {
         ...cg.toObject(),
@@ -33,15 +33,15 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const classGrade = await ClassGrade.findById(req.params.id)
+    const classGrade = await ClassGrade.findOne({ _id: req.params.id, ...req.tenantQuery })
       .populate('subjects', 'name code');
     
     if (!classGrade) return res.status(404).json({ message: 'Class grade not found' });
     
-    const students = await Student.find({ classGrade: req.params.id })
+    const students = await Student.find({ classGrade: req.params.id, ...req.tenantQuery })
       .populate('userId', 'username email isActive')
       .populate('section', 'name code');
-    const sections = await Section.find({ classGrade: req.params.id })
+    const sections = await Section.find({ classGrade: req.params.id, ...req.tenantQuery })
       .populate('teacher', 'firstName lastName email')
       .populate('students', 'firstName lastName studentId');
     
@@ -84,7 +84,11 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const classGrade = await ClassGrade.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const classGrade = await ClassGrade.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!classGrade) return res.status(404).json({ message: 'Class grade not found' });
     res.json(classGrade);
   } catch (error) {
@@ -94,11 +98,11 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const classGrade = await ClassGrade.findByIdAndDelete(req.params.id);
+    const classGrade = await ClassGrade.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!classGrade) return res.status(404).json({ message: 'Class grade not found' });
     
-    await Section.deleteMany({ classGrade: req.params.id });
-    await Student.updateMany({ classGrade: req.params.id }, { classGrade: null });
+    await Section.deleteMany({ classGrade: req.params.id, ...req.tenantQuery });
+    await Student.updateMany({ classGrade: req.params.id, ...req.tenantQuery }, { classGrade: null });
     
     res.json({ message: 'Class grade deleted successfully' });
   } catch (error) {
@@ -119,7 +123,7 @@ exports.getStudents = async (req, res) => {
       ];
     }
     
-    if (section) {
+    if (section && section.trim()) {
       query.section = section;
     }
     
@@ -152,7 +156,7 @@ exports.addStudent = async (req, res) => {
     if (!student) return res.status(404).json({ message: 'Student not found' });
     
     student.classGrade = req.params.id;
-    if (req.body.section) student.section = req.body.section;
+    if (req.body.section && req.body.section.trim()) student.section = req.body.section;
     await student.save();
     
     res.json(student);
@@ -200,7 +204,11 @@ exports.createSection = async (req, res) => {
 
 exports.updateSection = async (req, res) => {
   try {
-    const section = await Section.findByIdAndUpdate(req.params.sectionId, req.body, { new: true });
+    const section = await Section.findOneAndUpdate(
+      { _id: req.params.sectionId, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!section) return res.status(404).json({ message: 'Section not found' });
     res.json(section);
   } catch (error) {
@@ -210,8 +218,8 @@ exports.updateSection = async (req, res) => {
 
 exports.deleteSection = async (req, res) => {
   try {
-    await Section.findByIdAndDelete(req.params.sectionId);
-    await Student.updateMany({ section: req.params.sectionId }, { section: null });
+    await Section.findOneAndDelete({ _id: req.params.sectionId, ...req.tenantQuery });
+    await Student.updateMany({ section: req.params.sectionId, ...req.tenantQuery }, { section: null });
     res.json({ message: 'Section deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -221,7 +229,7 @@ exports.deleteSection = async (req, res) => {
 exports.addStudentToSection = async (req, res) => {
   try {
     const { studentId } = req.body;
-    const section = await Section.findById(req.params.sectionId);
+    const section = await Section.findOne({ _id: req.params.sectionId, ...req.tenantQuery });
     if (!section) return res.status(404).json({ message: 'Section not found' });
     
     if (!section.students.includes(studentId)) {
@@ -229,7 +237,7 @@ exports.addStudentToSection = async (req, res) => {
       await section.save();
     }
     
-    await Student.findByIdAndUpdate(studentId, { section: section._id });
+    await Student.findOneAndUpdate({ _id: studentId, ...req.tenantQuery }, { section: section._id });
     
     res.json(section);
   } catch (error) {
@@ -239,10 +247,14 @@ exports.addStudentToSection = async (req, res) => {
 
 exports.removeStudentFromSection = async (req, res) => {
   try {
-    await Section.findByIdAndUpdate(req.params.sectionId, {
-      $pull: { students: req.params.studentId }
-    });
-    await Student.findByIdAndUpdate(req.params.studentId, { section: null });
+    await Section.findOneAndUpdate(
+      { _id: req.params.sectionId, ...req.tenantQuery },
+      { $pull: { students: req.params.studentId } }
+    );
+    await Student.findOneAndUpdate(
+      { _id: req.params.studentId, ...req.tenantQuery },
+      { section: null }
+    );
     res.json({ message: 'Student removed from section' });
   } catch (error) {
     res.status(400).json({ message: error.message });
