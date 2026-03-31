@@ -362,5 +362,11 @@ export const subscriptionService = {
   updateByAdmin: (schoolId, data) => api.patch(`/subscriptions/school/${schoolId}`, data)
 };
 
+export const letterHeadService = {
+  get: () => api.get('/letter-head'),
+  save: (data) => api.post('/letter-head', data),
+  delete: () => api.delete('/letter-head')
+};
+
 // Add reportTemplates directly to api for convenience
 api.reportTemplates = reportTemplates;
