@@ -366,6 +366,18 @@ function Admissions() {
     }));
   };
 
+  const formatBForm = (value) => {
+    const digits = value.replace(/\D/g, '').slice(0, 13);
+    if (digits.length <= 5) return digits;
+    if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12, 13)}`;
+  };
+
+  const handleBirthCertChange = (value) => {
+    const formatted = formatBForm(value);
+    handleFormChange('student', 'birthCertNo', formatted);
+  };
+
   const handleNestedChange = (section, subSection, field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -490,15 +502,26 @@ function Admissions() {
             const fatherPhone = inquiry.father?.mobile || inquiry.applicant?.contact?.phone || 'N/A';
             const fatherEmail = inquiry.father?.email || inquiry.applicant?.contact?.email || '';
             
+            const studentPhoto = inquiry.applicant?.photo || inquiry.student?.photo;
+            const initials = studentName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+            
             return (
               <div key={inquiry._id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                 <div className="flex flex-col lg:flex-row">
                   <div className="flex-1 p-5">
                     <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User size={24} className="text-blue-600" />
-                        </div>
+                        {studentPhoto ? (
+                          <img 
+                            src={studentPhoto} 
+                            alt={studentName}
+                            className="w-14 h-14 rounded-full object-cover border-2 border-blue-100"
+                          />
+                        ) : (
+                          <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-lg font-semibold text-blue-600">{initials}</span>
+                          </div>
+                        )}
                         <div>
                           <h3 className="font-semibold text-lg text-gray-800">{studentName}</h3>
                           <p className="text-sm text-gray-500">
@@ -822,12 +845,19 @@ function Admissions() {
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                          <FormField 
-                            label="B-Form / Birth Certificate No" 
-                            value={formData.student?.birthCertNo}
-                            onChange={(v) => handleFormChange('student', 'birthCertNo', v)}
-                            disabled={modalMode === 'view'}
-                          />
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">B-Form / Birth Certificate No</label>
+                            <input
+                              type="text"
+                              value={formData.student?.birthCertNo || ''}
+                              onChange={(e) => handleBirthCertChange(e.target.value)}
+                              maxLength={15}
+                              disabled={modalMode === 'view'}
+                              className="w-full px-3 py-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                              placeholder="XXXXX-XXXXXXX-X"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">13 digits (e.g., 12345-1234567-1)</p>
+                          </div>
                           <FormField 
                             label="Nationality" 
                             value={formData.student?.nationality}
