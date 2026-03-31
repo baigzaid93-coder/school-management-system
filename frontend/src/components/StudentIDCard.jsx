@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
-import { settingsService, letterHeadService } from '../services/api';
+import { letterHeadService } from '../services/api';
 import './StudentIDCard.css';
 
-const StudentIDCard = ({ student, schoolInfo, onClose }) => {
+const StudentIDCard = ({ student, onClose }) => {
   const [showBack, setShowBack] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [barcodeValue] = useState(() => student?.studentId || 'SID' + Math.random().toString(36).substr(2, 9).toUpperCase());
-  const [schoolData, setSchoolData] = useState(null);
+  const [letterHead, setLetterHead] = useState(null);
   
   const formatDate = (date) => {
     if (!date) return '-';
@@ -17,58 +17,35 @@ const StudentIDCard = ({ student, schoolInfo, onClose }) => {
   };
 
   const getValidTill = () => {
-    const year = new Date().getFullYear() + 1;
+    const year = new Date().getFullYear() + 2;
     return `30 June ${year}`;
   };
 
   useEffect(() => {
-    const fetchSchoolData = async () => {
+    const fetchLetterHead = async () => {
       try {
-        const [schoolRes, letterHeadRes] = await Promise.all([
-          settingsService.school.get(),
-          letterHeadService.get()
-        ]);
-        
-        const schoolSettings = schoolRes.data || {};
-        const letterHeadData = letterHeadRes.data || {};
-        
-        setSchoolData({
-          name: schoolSettings.name || 'School Name',
-          tagline: schoolSettings.tagline || schoolSettings.schoolTagline || '',
-          address: schoolSettings.address || '',
-          phone: schoolSettings.phone || '',
-          website: schoolSettings.website || '',
-          email: schoolSettings.email || '',
-          logo: letterHeadData.logo || schoolSettings.logo || null
-        });
+        const response = await letterHeadService.get();
+        if (response.data) {
+          setLetterHead(response.data);
+        }
       } catch (err) {
-        console.error('Failed to fetch school data:', err);
-        setSchoolData({
-          name: schoolInfo?.name || 'School Name',
-          tagline: schoolInfo?.tagline || '',
-          address: schoolInfo?.address || '',
-          phone: schoolInfo?.phone || '',
-          website: schoolInfo?.website || '',
-          email: schoolInfo?.email || '',
-          logo: schoolInfo?.logo || null
-        });
+        console.error('Failed to fetch letter head:', err);
       }
     };
-    
-    fetchSchoolData();
+    fetchLetterHead();
   }, []);
 
   useEffect(() => {
     const generateQR = async () => {
-      if (student) {
+      if (student && letterHead) {
         const qrData = JSON.stringify({
           id: student.studentId,
           name: `${student.firstName} ${student.lastName}`,
           class: student.classGrade?.name || '-',
-          school: schoolData?.name || 'School'
+          school: letterHead.headerText || 'School'
         });
         try {
-          const url = await QRCode.toDataURL(qrData, { width: 60, margin: 0 });
+          const url = await QRCode.toDataURL(qrData, { width: 50, margin: 0 });
           setQrCodeUrl(url);
         } catch (err) {
           console.error('QR generation failed:', err);
@@ -76,7 +53,7 @@ const StudentIDCard = ({ student, schoolInfo, onClose }) => {
       }
     };
     generateQR();
-  }, [student, schoolData]);
+  }, [student, letterHead]);
 
   const generateBarcode = () => {
     return barcodeValue.split('').map((char, i) => (
@@ -148,32 +125,15 @@ const StudentIDCard = ({ student, schoolInfo, onClose }) => {
     }
   };
 
-  const school = schoolData || schoolInfo || {
-    name: 'School Name',
-    tagline: '',
-    address: '',
-    phone: '',
-    website: '',
-    email: '',
-    logo: null
-  };
-
-  const studentData = {
-    ...student,
-    fullName: `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || '-',
-    className: student?.classGrade?.name || student?.class?.name || '-',
-    sectionName: student?.section?.name || '-',
-    dob: formatDate(student?.dateOfBirth),
-    fatherName: student?.parentName || '-',
-    bloodGroup: student?.bloodGroup || student?.admissionForm?.bloodGroup || '-',
-    photo: student?.photo || student?.admissionForm?.photo || null
-  };
+  const schoolName = letterHead?.headerText || 'School Name';
+  const primaryColor = letterHead?.primaryColor || '#1e40af';
+  const accentColor = letterHead?.accentColor || '#3b82f6';
 
   return (
     <div className="id-card-modal-overlay">
       <div className="id-card-container">
         <div className="id-card-header">
-          <h2>Student ID Card Preview</h2>
+          <h2>Student ID Card</h2>
           <div className="header-actions">
             <button className="btn-toggle" onClick={() => setShowBack(!showBack)}>
               {showBack ? 'Show Front' : 'Show Back'}
@@ -183,36 +143,37 @@ const StudentIDCard = ({ student, schoolInfo, onClose }) => {
         </div>
 
         <div className="id-card-wrapper">
-          {/* Front Side - Horizontal */}
+          {/* Front Side */}
           <div className={`id-card-side ${showBack ? 'hidden' : 'active'}`}>
             <div id="id-card-front" className="id-card horizontal-card">
-              {/* Left Side - Photo and QR */}
               <div className="card-left">
                 <div className="header-section">
                   <div className="logo-area">
-                    {school.logo ? (
-                      <img src={school.logo} alt="School Logo" className="school-logo" />
+                    {letterHead?.logo ? (
+                      <img src={letterHead.logo} alt="School Logo" className="school-logo" />
                     ) : (
-                      <div className="logo-placeholder">
-                        <span>{school.name.charAt(0)}</span>
+                      <div className="logo-placeholder" style={{ backgroundColor: primaryColor }}>
+                        <span>{schoolName.charAt(0)}</span>
                       </div>
                     )}
                   </div>
                   <div className="school-text">
-                    <h1 className="school-name">{school.name}</h1>
-                    <p className="school-tagline">{school.tagline}</p>
+                    <h1 className="school-name" style={{ color: primaryColor }}>{schoolName}</h1>
+                    {letterHead?.tagline && (
+                      <p className="school-tagline" style={{ color: accentColor }}>{letterHead.tagline}</p>
+                    )}
                   </div>
                 </div>
                 
-                <div className="card-title">Student Identity Card</div>
+                <div className="card-title" style={{ backgroundColor: primaryColor }}>Student Identity Card</div>
                 
                 <div className="photo-section">
                   <div className="photo-frame">
-                    {studentData.photo ? (
-                      <img src={studentData.photo} alt="Student" className="student-photo" />
+                    {student?.photo ? (
+                      <img src={student.photo} alt="Student" className="student-photo" />
                     ) : (
-                      <div className="photo-placeholder">
-                        <span>{studentData.fullName.charAt(0)}</span>
+                      <div className="photo-placeholder" style={{ backgroundColor: primaryColor }}>
+                        <span>{student?.firstName?.charAt(0) || 'S'}</span>
                       </div>
                     )}
                   </div>
@@ -227,43 +188,46 @@ const StudentIDCard = ({ student, schoolInfo, onClose }) => {
                 
                 <div className="signature-section">
                   <div className="signature-line"></div>
-                  <span className="signature-label">Principal Signature</span>
+                  <span className="signature-label">Principal</span>
                 </div>
               </div>
 
-              {/* Right Side - Student Info */}
               <div className="card-right">
                 <div className="info-section">
                   <div className="info-row">
                     <span className="label">Student Name</span>
-                    <span className="value">{studentData.fullName}</span>
+                    <span className="value">{student?.firstName} {student?.lastName}</span>
                   </div>
                   <div className="info-row">
-                    <span className="label">Father's Name</span>
-                    <span className="value">{studentData.fatherName}</span>
+                    <span className="label">Father Name</span>
+                    <span className="value">{student?.parentName || '-'}</span>
                   </div>
                   <div className="info-row">
                     <span className="label">Student ID</span>
-                    <span className="value id-highlight">{studentData.studentId}</span>
+                    <span className="value id-highlight">{student?.studentId}</span>
                   </div>
                   <div className="info-row">
-                    <span className="label">Class / Section</span>
-                    <span className="value">{studentData.className} {studentData.sectionName !== '-' ? `/ ${studentData.sectionName}` : ''}</span>
+                    <span className="label">Class</span>
+                    <span className="value">{student?.classGrade?.name || '-'}</span>
                   </div>
                   <div className="info-row">
-                    <span className="label">Roll Number</span>
-                    <span className="value">{studentData.rollNo || '-'}</span>
+                    <span className="label">Section</span>
+                    <span className="value">{student?.section?.name || '-'}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Roll No</span>
+                    <span className="value">{student?.rollNo || '-'}</span>
                   </div>
                 </div>
 
                 <div className="info-secondary">
                   <div className="info-item">
                     <span className="label-sm">Date of Birth</span>
-                    <span className="value-sm">{studentData.dob}</span>
+                    <span className="value-sm">{formatDate(student?.dateOfBirth)}</span>
                   </div>
                   <div className="info-item">
                     <span className="label-sm">Blood Group</span>
-                    <span className="value-sm">{studentData.bloodGroup}</span>
+                    <span className="value-sm">{student?.bloodGroup || '-'}</span>
                   </div>
                   <div className="info-item">
                     <span className="label-sm">Valid Till</span>
@@ -279,52 +243,50 @@ const StudentIDCard = ({ student, schoolInfo, onClose }) => {
             </div>
           </div>
 
-          {/* Back Side - Horizontal */}
+          {/* Back Side */}
           <div className={`id-card-side ${!showBack ? 'hidden' : 'active'}`}>
             <div id="id-card-back" className="id-card horizontal-card back-card">
-              {/* Header */}
-              <div className="back-header">
-                <h2 className="back-school-name">{school.name}</h2>
+              <div className="back-header" style={{ backgroundColor: primaryColor }}>
+                <h2 className="back-school-name">{schoolName}</h2>
               </div>
 
-              {/* Content */}
               <div className="back-content">
                 <div className="back-section">
-                  <h3 className="section-title">Contact Information</h3>
+                  <h3 className="section-title" style={{ color: primaryColor }}>Contact Information</h3>
                   <div className="contact-list">
-                    <div className="contact-item">
-                      <span className="icon">📍</span>
-                      <span>{school.address}</span>
-                    </div>
-                    <div className="contact-item">
-                      <span className="icon">📞</span>
-                      <span>{school.phone}</span>
-                    </div>
-                    <div className="contact-item">
-                      <span className="icon">🌐</span>
-                      <span>{school.website}</span>
-                    </div>
-                    <div className="contact-item">
-                      <span className="icon">✉️</span>
-                      <span>{school.email}</span>
-                    </div>
+                    {letterHead?.address && (
+                      <div className="contact-item">
+                        <span className="icon">📍</span>
+                        <span>{letterHead.address}</span>
+                      </div>
+                    )}
+                    {letterHead?.phone && (
+                      <div className="contact-item">
+                        <span className="icon">📞</span>
+                        <span>{letterHead.phone}</span>
+                      </div>
+                    )}
+                    {letterHead?.email && (
+                      <div className="contact-item">
+                        <span className="icon">✉️</span>
+                        <span>{letterHead.email}</span>
+                      </div>
+                    )}
+                    {letterHead?.website && (
+                      <div className="contact-item">
+                        <span className="icon">🌐</span>
+                        <span>{letterHead.website}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="back-section">
-                  <h3 className="section-title">Emergency & Transport</h3>
+                  <h3 className="section-title" style={{ color: primaryColor }}>Academic Info</h3>
                   <div className="info-grid">
                     <div className="grid-item">
-                      <span className="label-sm">Emergency Contact</span>
-                      <span className="value-sm">{studentData.phone || '-'}</span>
-                    </div>
-                    <div className="grid-item">
-                      <span className="label-sm">Transport Route</span>
-                      <span className="value-sm">{studentData.transportRoute || '-'}</span>
-                    </div>
-                    <div className="grid-item">
-                      <span className="label-sm">Pickup Point</span>
-                      <span className="value-sm">{studentData.pickupPoint || '-'}</span>
+                      <span className="label-sm">Admission Date</span>
+                      <span className="value-sm">{formatDate(student?.admissionDate)}</span>
                     </div>
                     <div className="grid-item">
                       <span className="label-sm">Academic Year</span>
@@ -333,17 +295,12 @@ const StudentIDCard = ({ student, schoolInfo, onClose }) => {
                   </div>
                 </div>
 
-                <div className="if-found-box">
-                  <h3>⚠️ IF FOUND</h3>
-                  <p>Please return this card to the school administration or contact the nearest police station.</p>
-                </div>
-
-                <div className="terms-box">
-                  <p>This card is the property of {school.name}. Misuse will result in disciplinary action. Please report loss immediately to the school office.</p>
+                <div className="if-found-box" style={{ borderColor: primaryColor }}>
+                  <h3 style={{ color: primaryColor }}>⚠️ IF FOUND</h3>
+                  <p>Please return this card to the school or contact us. This card is the property of {schoolName}.</p>
                 </div>
               </div>
 
-              {/* Footer */}
               <div className="back-footer">
                 <div className="signature-section">
                   <div className="signature-line"></div>
@@ -354,7 +311,6 @@ const StudentIDCard = ({ student, schoolInfo, onClose }) => {
           </div>
         </div>
 
-        {/* Actions */}
         <div className="card-actions">
           <button className="btn-action btn-preview" onClick={() => setShowBack(!showBack)}>
             {showBack ? '← Front Side' : 'Back Side →'}
@@ -372,31 +328,3 @@ const StudentIDCard = ({ student, schoolInfo, onClose }) => {
 };
 
 export default StudentIDCard;
-
-// Sample Data for Testing
-export const sampleStudent = {
-  studentId: 'IGS-2024-0001',
-  firstName: 'Ahmed',
-  lastName: 'Khan',
-  dateOfBirth: '2010-05-15',
-  gender: 'Male',
-  bloodGroup: 'A+',
-  rollNo: '15',
-  parentName: 'Muhammad Ali Khan',
-  phone: '+92 300 1234567',
-  classGrade: { name: 'Class 5' },
-  section: { name: 'A' },
-  photo: null,
-  transportRoute: 'Route A - North Campus',
-  pickupPoint: 'Main Boulevard Stop'
-};
-
-export const sampleSchoolInfo = {
-  name: 'International Grammar School',
-  tagline: 'Building Tomorrow\'s Leaders',
-  address: '123 Education Street, Main Boulevard, City - 12345',
-  phone: '+92 300 1234567',
-  website: 'www.grammarschool.edu',
-  email: 'info@grammarschool.edu',
-  logo: null
-};
