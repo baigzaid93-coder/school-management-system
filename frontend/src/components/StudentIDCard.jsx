@@ -1,0 +1,379 @@
+import { useState } from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import QRCode from 'qrcode';
+import './StudentIDCard.css';
+
+const StudentIDCard = ({ student, schoolInfo, onClose }) => {
+  const [showBack, setShowBack] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [barcodeValue] = useState(() => student?.studentId || 'SID' + Math.random().toString(36).substr(2, 9).toUpperCase());
+  
+  const formatDate = (date) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const getValidTill = () => {
+    const year = new Date().getFullYear() + 1;
+    return `30 June ${year}`;
+  };
+
+  // Generate QR Code
+  useState(() => {
+    const generateQR = async () => {
+      if (student) {
+        const qrData = JSON.stringify({
+          id: student.studentId,
+          name: `${student.firstName} ${student.lastName}`,
+          class: student.classGrade?.name || '-',
+          school: schoolInfo?.name || 'School'
+        });
+        try {
+          const url = await QRCode.toDataURL(qrData, { width: 80, margin: 0 });
+          setQrCodeUrl(url);
+        } catch (err) {
+          console.error('QR generation failed:', err);
+        }
+      }
+    };
+    generateQR();
+  }, [student]);
+
+  const generateBarcode = () => {
+    return barcodeValue.split('').map((char, i) => (
+      <span key={i} className={`bar-code-line ${char === '0' ? 'thin' : 'thick'}`}></span>
+    ));
+  };
+
+  const downloadPDF = async () => {
+    const cardElement = document.getElementById('id-card-front');
+    if (!cardElement) return;
+
+    try {
+      const canvas = await html2canvas(cardElement, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        allowTaint: true,
+        logging: false
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', [90, 140]);
+      
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgWidth = pageWidth - 4;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 2, 2, imgWidth, imgHeight);
+      
+      if (showBack) {
+        const backElement = document.getElementById('id-card-back');
+        if (backElement) {
+          const backCanvas = await html2canvas(backElement, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            allowTaint: true,
+            logging: false
+          });
+          pdf.addPage();
+          const backImgData = backCanvas.toDataURL('image/png');
+          const backImgHeight = (backCanvas.height * imgWidth) / backCanvas.width;
+          pdf.addImage(backImgData, 'PNG', 2, 2, imgWidth, backImgHeight);
+        }
+      }
+
+      pdf.save(`Student_ID_Card_${student?.studentId || 'card'}.pdf`);
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+    }
+  };
+
+  const downloadPNG = async () => {
+    const cardElement = document.getElementById('id-card-front');
+    if (!cardElement) return;
+
+    try {
+      const canvas = await html2canvas(cardElement, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        allowTaint: true
+      });
+
+      const link = document.createElement('a');
+      link.download = `Student_ID_Card_${student?.studentId || 'card'}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (error) {
+      console.error('PNG download failed:', error);
+    }
+  };
+
+  const school = schoolInfo || {
+    name: 'International Grammar School',
+    tagline: 'Excellence in Education',
+    address: '123 Education Street, Main Boulevard, City - 12345',
+    phone: '+92 300 1234567',
+    website: 'www.grammarschool.edu',
+    email: 'info@grammarschool.edu'
+  };
+
+  const studentData = {
+    ...student,
+    fullName: `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || '-',
+    className: student?.classGrade?.name || student?.class?.name || '-',
+    sectionName: student?.section?.name || '-',
+    dob: formatDate(student?.dateOfBirth),
+    fatherName: student?.parentName || '-',
+    bloodGroup: student?.bloodGroup || student?.admissionForm?.bloodGroup || '-',
+    photo: student?.photo || student?.admissionForm?.photo || null
+  };
+
+  return (
+    <div className="id-card-modal-overlay">
+      <div className="id-card-container">
+        <div className="id-card-header">
+          <h2>Student ID Card Preview</h2>
+          <div className="header-actions">
+            <button className="btn-toggle" onClick={() => setShowBack(!showBack)}>
+              {showBack ? 'Show Front' : 'Show Back'}
+            </button>
+            <button className="btn-close" onClick={onClose}>×</button>
+          </div>
+        </div>
+
+        <div className="id-card-wrapper">
+          {/* Front Side */}
+          <div className={`id-card-side ${showBack ? 'hidden' : 'active'}`}>
+            <div id="id-card-front" className="id-card">
+              {/* Header */}
+              <div className="card-header">
+                <div className="school-info">
+                  <div className="logo-area">
+                    {school.logo ? (
+                      <img src={school.logo} alt="School Logo" className="school-logo" />
+                    ) : (
+                      <div className="logo-placeholder">
+                        <span>{school.name.charAt(0)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="school-details">
+                    <h1 className="school-name">{school.name}</h1>
+                    <p className="school-tagline">{school.tagline}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Title */}
+              <div className="card-title">Student Identity Card</div>
+
+              {/* Photo and Info */}
+              <div className="card-body">
+                <div className="photo-section">
+                  <div className="photo-frame">
+                    {studentData.photo ? (
+                      <img src={studentData.photo} alt="Student" className="student-photo" />
+                    ) : (
+                      <div className="photo-placeholder">
+                        <span>{studentData.fullName.charAt(0)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="qr-code">
+                    {qrCodeUrl ? (
+                      <img src={qrCodeUrl} alt="QR Code" />
+                    ) : (
+                      <div className="qr-placeholder">QR</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="info-grid">
+                  <div className="info-row">
+                    <span className="label">Name</span>
+                    <span className="value">{studentData.fullName}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Father's Name</span>
+                    <span className="value">{studentData.fatherName}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Student ID</span>
+                    <span className="value id-highlight">{studentData.studentId}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Class</span>
+                    <span className="value">{studentData.className}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Section</span>
+                    <span className="value">{studentData.sectionName}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Roll No</span>
+                    <span className="value">{studentData.rollNo || '-'}</span>
+                  </div>
+                </div>
+
+                <div className="info-grid-secondary">
+                  <div className="info-item">
+                    <span className="label-sm">Date of Birth</span>
+                    <span className="value-sm">{studentData.dob}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="label-sm">Blood Group</span>
+                    <span className="value-sm">{studentData.bloodGroup}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="label-sm">Valid Till</span>
+                    <span className="value-sm">{getValidTill()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="card-footer">
+                <div className="signature-area">
+                  <div className="signature-line"></div>
+                  <span className="signature-label">Principal Signature</span>
+                </div>
+                <div className="barcode-section">
+                  <div className="barcode">{generateBarcode()}</div>
+                  <span className="barcode-number">{barcodeValue}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Back Side */}
+          <div className={`id-card-side ${!showBack ? 'hidden' : 'active'}`}>
+            <div id="id-card-back" className="id-card back-card">
+              {/* Header */}
+              <div className="card-header back-header">
+                <h2 className="school-name-back">{school.name}</h2>
+              </div>
+
+              {/* Content */}
+              <div className="card-body back-body">
+                <div className="info-block">
+                  <h3 className="block-title">Contact Information</h3>
+                  <div className="block-content">
+                    <div className="info-line">
+                      <span className="icon">📍</span>
+                      <span>{school.address}</span>
+                    </div>
+                    <div className="info-line">
+                      <span className="icon">📞</span>
+                      <span>{school.phone}</span>
+                    </div>
+                    <div className="info-line">
+                      <span className="icon">🌐</span>
+                      <span>{school.website}</span>
+                    </div>
+                    <div className="info-line">
+                      <span className="icon">✉️</span>
+                      <span>{school.email}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="info-block">
+                  <h3 className="block-title">Emergency Contact</h3>
+                  <div className="block-content">
+                    <div className="info-line">
+                      <span className="icon">🚨</span>
+                      <span>School Office: {school.phone}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="info-block">
+                  <h3 className="block-title">Transport Details</h3>
+                  <div className="block-content">
+                    <div className="info-line">
+                      <span className="label-sm">Route:</span>
+                      <span>{studentData.transportRoute || '-'}</span>
+                    </div>
+                    <div className="info-line">
+                      <span className="label-sm">Pickup Point:</span>
+                      <span>{studentData.pickupPoint || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="if-found-box">
+                  <h3>If Found</h3>
+                  <p>Please return this card to the school or contact the nearest police station.</p>
+                </div>
+
+                <div className="terms-section">
+                  <p>This card is the property of {school.name}. Misuse will result in disciplinary action. Please report loss immediately.</p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="card-footer back-footer">
+                <div className="validity-text">
+                  <span>Academic Session: {new Date().getFullYear()}-{new Date().getFullYear() + 1}</span>
+                </div>
+                <div className="signature-area">
+                  <div className="signature-line"></div>
+                  <span className="signature-label">Authorized Signature</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="card-actions">
+          <button className="btn-action btn-preview" onClick={() => setShowBack(!showBack)}>
+            {showBack ? '← Front Side' : 'Back Side →'}
+          </button>
+          <button className="btn-action btn-pdf" onClick={downloadPDF}>
+            📄 Download PDF
+          </button>
+          <button className="btn-action btn-png" onClick={downloadPNG}>
+            🖼️ Download PNG
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default StudentIDCard;
+
+// Sample Data for Testing
+export const sampleStudent = {
+  studentId: 'IGS-2024-0001',
+  firstName: 'Ahmed',
+  lastName: 'Khan',
+  dateOfBirth: '2010-05-15',
+  gender: 'Male',
+  bloodGroup: 'A+',
+  rollNo: '15',
+  parentName: 'Muhammad Ali Khan',
+  phone: '+92 300 1234567',
+  classGrade: { name: 'Class 5' },
+  section: { name: 'A' },
+  photo: null,
+  transportRoute: 'Route A - North Campus',
+  pickupPoint: 'Main Boulevard Stop'
+};
+
+export const sampleSchoolInfo = {
+  name: 'International Grammar School',
+  tagline: 'Building Tomorrow\'s Leaders',
+  address: '123 Education Street, Main Boulevard, City - 12345',
+  phone: '+92 300 1234567',
+  website: 'www.grammarschool.edu',
+  email: 'info@grammarschool.edu',
+  logo: null
+};

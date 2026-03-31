@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Edit2, Trash2, X, Users, AlertCircle, Download, CreditCard, Plus, Eye, FileText, DollarSign, Phone, Mail, Calendar, BookOpen, User, UsersRound, FileDown } from 'lucide-react';
 import { studentService, feeService, classGradeService } from '../services/api';
-import { generateFeeVoucherPDF, generateStudentCard, generateFamilyChallanPDF, generateBulkFeeVouchersPDF } from '../utils/pdfGenerator';
+import { generateFeeVoucherPDF, generateFamilyChallanPDF, generateBulkFeeVouchersPDF } from '../utils/pdfGenerator';
+import StudentIDCard from '../components/StudentIDCard';
 import useToast from '../hooks/useToast';
 
 function Students() {
@@ -18,6 +19,8 @@ function Students() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentFees, setStudentFees] = useState([]);
   const [studentFines, setStudentFines] = useState([]);
+  const [showIDCard, setShowIDCard] = useState(false);
+  const [idCardStudent, setIdCardStudent] = useState(null);
   const [editingStudent, setEditingStudent] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudents, setSelectedStudents] = useState([]);
@@ -290,13 +293,9 @@ function Students() {
     }
   };
 
-  const handleDownloadCard = async (student) => {
-    try {
-      await generateStudentCard(student);
-      toast.success('Student card generated');
-    } catch (err) {
-      toast.error('Error generating student card');
-    }
+  const handleDownloadCard = (student) => {
+    setIdCardStudent(student);
+    setShowIDCard(true);
   };
 
   const handleSelectAllStudents = () => {
@@ -1052,6 +1051,13 @@ function Students() {
             </div>
           </div>
         </div>
+      )}
+
+      {showIDCard && idCardStudent && (
+        <StudentIDCard
+          student={idCardStudent}
+          onClose={() => setShowIDCard(false)}
+        />
       )}
     </div>
   );
