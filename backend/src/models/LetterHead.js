@@ -9,6 +9,8 @@ const letterHeadSchema = new mongoose.Schema({
   phone: { type: String, default: '' },
   email: { type: String, default: '' },
   website: { type: String, default: '' },
+  primaryColor: { type: String, default: '#1e40af' },
+  accentColor: { type: String, default: '#3b82f6' },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 

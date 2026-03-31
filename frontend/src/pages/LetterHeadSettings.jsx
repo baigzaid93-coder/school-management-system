@@ -11,6 +11,8 @@ function LetterHeadSettings() {
     phone: '',
     email: '',
     website: '',
+    primaryColor: '#1e40af',
+    accentColor: '#3b82f6',
     isActive: true
   });
   const [loading, setLoading] = useState(true);
@@ -77,6 +79,8 @@ function LetterHeadSettings() {
         phone: '',
         email: '',
         website: '',
+        primaryColor: '#1e40af',
+        accentColor: '#3b82f6',
         isActive: true
       });
       setMessage('Letter head deleted');
@@ -222,6 +226,52 @@ function LetterHeadSettings() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Building size={20} /> Brand Colors
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={letterHead.primaryColor}
+                    onChange={(e) => handleChange('primaryColor', e.target.value)}
+                    className="w-12 h-12 rounded-lg cursor-pointer border-2 border-gray-200"
+                  />
+                  <input
+                    type="text"
+                    value={letterHead.primaryColor}
+                    onChange={(e) => handleChange('primaryColor', e.target.value)}
+                    className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
+                    placeholder="#1e40af"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Used for headers and main elements</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Accent Color</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={letterHead.accentColor}
+                    onChange={(e) => handleChange('accentColor', e.target.value)}
+                    className="w-12 h-12 rounded-lg cursor-pointer border-2 border-gray-200"
+                  />
+                  <input
+                    type="text"
+                    value={letterHead.accentColor}
+                    onChange={(e) => handleChange('accentColor', e.target.value)}
+                    className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
+                    placeholder="#3b82f6"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Used for highlights and accents</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold">Active Status</h2>
@@ -241,25 +291,27 @@ function LetterHeadSettings() {
 
           <div className="preview-section bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">Preview</h2>
-            <div className="border-2 border-gray-200 rounded-lg p-4 bg-white">
-              <div className="flex items-center gap-4 pb-4 border-b">
-                {letterHead.logo && (
-                  <img src={letterHead.logo} alt="Logo" className="h-16 w-auto object-contain" />
-                )}
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-gray-800">
-                    {letterHead.headerText || 'School Name'}
-                  </h3>
-                  {letterHead.tagline && (
-                    <p className="text-sm text-gray-500">{letterHead.tagline}</p>
+            <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+              <div className="p-4" style={{ backgroundColor: '#f8fafc', borderLeft: `4px solid ${letterHead.primaryColor}` }}>
+                <div className="flex items-center gap-4">
+                  {letterHead.logo && (
+                    <img src={letterHead.logo} alt="Logo" className="h-16 w-auto object-contain" />
                   )}
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold" style={{ color: letterHead.primaryColor }}>
+                      {letterHead.headerText || 'School Name'}
+                    </h3>
+                    {letterHead.tagline && (
+                      <p className="text-sm" style={{ color: letterHead.accentColor }}>{letterHead.tagline}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-600">
-                {letterHead.address && <p>{letterHead.address}</p>}
-                {letterHead.phone && <p>Phone: {letterHead.phone}</p>}
-                {letterHead.email && <p>Email: {letterHead.email}</p>}
-                {letterHead.website && <p>Web: {letterHead.website}</p>}
+                <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-600">
+                  {letterHead.address && <p>{letterHead.address}</p>}
+                  {letterHead.phone && <p>Phone: {letterHead.phone}</p>}
+                  {letterHead.email && <p>Email: {letterHead.email}</p>}
+                  {letterHead.website && <p>Web: {letterHead.website}</p>}
+                </div>
               </div>
             </div>
           </div>

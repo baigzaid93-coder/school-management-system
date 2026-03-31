@@ -37,8 +37,8 @@ exports.generateVoucherPDF = async (req, res) => {
     const school = expense.school;
     const schoolId = school?._id || school;
     const letterHead = schoolId ? await LetterHead.findOne({ school: schoolId }) : null;
-    const primaryColor = school?.settings?.primaryColor || '#1e40af';
-    const accentColor = school?.settings?.accentColor || '#3b82f6';
+    const primaryColor = letterHead?.primaryColor || school?.settings?.primaryColor || '#1e40af';
+    const accentColor = letterHead?.accentColor || school?.settings?.accentColor || '#3b82f6';
     const currency = school?.settings?.currency || 'PKR';
     
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
@@ -60,7 +60,7 @@ exports.generateVoucherPDF = async (req, res) => {
       
       doc.rect(leftMargin, y, 4, 100).fill(primaryColor);
       
-      const logoData = letterHead?.logo || school?.logo;
+      const logoData = letterHead?.logo;
       if (logoData) {
         try {
           const imgBuffer = Buffer.from(logoData.split(',')[1] || logoData, 'base64');
@@ -69,26 +69,26 @@ exports.generateVoucherPDF = async (req, res) => {
       }
       
       const textStartX = logoData ? leftMargin + 100 : leftMargin + 15;
-      const headerText = letterHead?.headerText || school?.name || 'School Name';
+      const headerText = letterHead?.headerText || 'School Name';
       
       doc.fontSize(20).fillColor(primaryColor).font('Helvetica-Bold');
       doc.text(headerText, textStartX, y + 15, { width: contentWidth - 120 });
       
-      const taglineText = letterHead?.tagline || school?.tagline || '';
+      const taglineText = letterHead?.tagline || '';
       if (taglineText) {
         doc.fontSize(11).fillColor(accentColor).font('Helvetica-Oblique');
         doc.text(taglineText, textStartX, y + 35, { width: contentWidth - 120 });
       }
       
       const contactParts = [];
-      if (letterHead?.address || school?.address) {
-        contactParts.push(letterHead?.address || school?.address);
+      if (letterHead?.address) {
+        contactParts.push(letterHead.address);
       }
-      if (letterHead?.phone || school?.phone) {
-        contactParts.push(`Ph: ${letterHead?.phone || school?.phone}`);
+      if (letterHead?.phone) {
+        contactParts.push(`Ph: ${letterHead.phone}`);
       }
-      if (letterHead?.email || school?.email) {
-        contactParts.push(`${letterHead?.email || school?.email}`);
+      if (letterHead?.email) {
+        contactParts.push(letterHead.email);
       }
       if (letterHead?.website) {
         contactParts.push(letterHead.website);

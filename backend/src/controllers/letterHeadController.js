@@ -11,7 +11,7 @@ exports.getLetterHead = async (req, res) => {
 
 exports.saveLetterHead = async (req, res) => {
   try {
-    const { logo, headerText, tagline, address, phone, email, website, isActive } = req.body;
+    const { logo, headerText, tagline, address, phone, email, website, primaryColor, accentColor, isActive } = req.body;
     const schoolId = req.tenantQuery?.school;
     
     if (!schoolId) {
@@ -29,6 +29,8 @@ exports.saveLetterHead = async (req, res) => {
         phone,
         email,
         website,
+        primaryColor,
+        accentColor,
         isActive 
       },
       { new: true, upsert: true }
