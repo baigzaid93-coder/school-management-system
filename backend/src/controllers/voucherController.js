@@ -63,9 +63,17 @@ exports.generateVoucherPDF = async (req, res) => {
       const logoData = letterHead?.logo;
       if (logoData) {
         try {
-          const imgBuffer = Buffer.from(logoData.split(',')[1] || logoData, 'base64');
-          doc.image(imgBuffer, leftMargin + 15, y + 15, { width: 70, height: 70 });
-        } catch (e) {}
+          let imgData = logoData;
+          if (logoData.includes(',')) {
+            imgData = logoData.split(',')[1];
+          }
+          const imgBuffer = Buffer.from(imgData, 'base64');
+          if (imgBuffer.length > 0) {
+            doc.image(imgBuffer, leftMargin + 15, y + 15, { width: 70, height: 70 });
+          }
+        } catch (e) {
+          console.error('Logo image error:', e.message);
+        }
       }
       
       const textStartX = logoData ? leftMargin + 100 : leftMargin + 15;
