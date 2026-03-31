@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import api from '../services/api';
+import html2canvas from 'html2canvas';
 
 const formatCurrency = (amount) => {
   return (amount || 0).toLocaleString('en-PK');
@@ -585,108 +586,97 @@ export const generateFeeVoucherPDF = async (studentData, fees) => {
   doc.save(filename);
 };
 
-export const generateStudentCard = (studentData) => {
-  const doc = new jsPDF({ unit: 'mm', format: 'a7', orientation: 'portrait' });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  
+export const generateStudentCard = async (studentData) => {
   const schoolName = localStorage.getItem('schoolName') || 'School Management System';
   const schoolAddress = localStorage.getItem('schoolAddress') || '';
   const schoolPhone = localStorage.getItem('schoolPhone') || '';
   
-  doc.setFillColor(0, 51, 102);
-  doc.rect(0, 0, pageWidth, 25, 'F');
-  
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.text(schoolName.toUpperCase(), pageWidth / 2, 10, { align: 'center' });
-  
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
-  if (schoolAddress) doc.text(schoolAddress, pageWidth / 2, 16, { align: 'center' });
-  if (schoolPhone) doc.text(schoolPhone, pageWidth / 2, 21, { align: 'center' });
-  
-  doc.setTextColor(0, 51, 102);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text('STUDENT ID CARD', pageWidth / 2, 32, { align: 'center' });
+  const cardHTML = document.createElement('div');
+  cardHTML.id = 'student-id-card';
+  cardHTML.style.cssText = `
+    width: 350px;
+    font-family: Arial, sans-serif;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  `;
   
   const photo = studentData.photo || studentData.admissionForm?.photo;
-  const photoSize = 30;
-  const photoX = (pageWidth - photoSize) / 2;
-  const photoY = 38;
-  
-  if (photo) {
-    try {
-      doc.addImage(photo, 'JPEG', photoX, photoY, photoSize, photoSize);
-      doc.setDrawColor(0, 51, 102);
-      doc.setLineWidth(0.5);
-      doc.rect(photoX, photoY, photoSize, photoSize);
-    } catch (e) {
-      doc.setFillColor(240, 240, 240);
-      doc.rect(photoX, photoY, photoSize, photoSize, 'F');
-      doc.setFontSize(20);
-      doc.setTextColor(150, 150, 150);
-      doc.text('PHOTO', photoX + photoSize/2, photoY + photoSize/2 + 5, { align: 'center' });
-    }
-  } else {
-    doc.setFillColor(240, 240, 240);
-    doc.rect(photoX, photoY, photoSize, photoSize, 'F');
-    doc.setFontSize(20);
-    doc.setTextColor(150, 150, 150);
-    doc.text('PHOTO', photoX + photoSize/2, photoY + photoSize/2 + 5, { align: 'center' });
-  }
-  
-  let y = photoY + photoSize + 8;
-  doc.setTextColor(0, 0, 0);
-  
-  const drawField = (label, value, x, rowY) => {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.text(label + ':', x, rowY);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(value || '-', x + 22, rowY);
-  };
-  
   const fullName = `${studentData.firstName || ''} ${studentData.lastName || ''}`.trim();
-  drawField('Name', fullName, 10, y);
-  y += 7;
+  const className = studentData.classGrade?.name || studentData.class?.name || '-';
+  const sectionName = studentData.section?.name || '-';
+  const dob = studentData.dateOfBirth ? new Date(studentData.dateOfBirth).toLocaleDateString() : '-';
   
-  drawField('Student ID', studentData.studentId || '-', 10, y);
-  y += 7;
+  cardHTML.innerHTML = `
+    <div style="background: linear-gradient(135deg, #003366 0%, #004080 100%); padding: 15px; text-align: center;">
+      <div style="color: white; font-size: 16px; font-weight: bold;">${schoolName.toUpperCase()}</div>
+      <div style="color: #aaccff; font-size: 10px;">${schoolAddress}${schoolPhone ? ' | ' + schoolPhone : ''}</div>
+    </div>
+    <div style="text-align: center; padding: 15px; background: #f8f9fa;">
+      <div style="color: #003366; font-size: 12px; font-weight: bold; margin-bottom: 10px;">STUDENT ID CARD</div>
+      <div style="width: 100px; height: 100px; margin: 0 auto 15px; border: 3px solid #003366; border-radius: 8px; overflow: hidden; background: #e9ecef;">
+        ${photo ? `<img src="${photo}" style="width: 100%; height: 100%; object-fit: cover;" />` : '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #adb5bd; font-size: 12px;">PHOTO</div>'}
+      </div>
+      <div style="font-size: 16px; font-weight: bold; color: #212529; margin-bottom: 5px;">${fullName || '-'}</div>
+      <div style="font-size: 11px; color: #6c757d;">${studentData.studentId || '-'}</div>
+    </div>
+    <div style="padding: 15px; font-size: 12px;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 6px 0; color: #6c757d; width: 40%;">Class</td>
+          <td style="padding: 6px 0; color: #212529; font-weight: 500;">${className}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #6c757d;">Section</td>
+          <td style="padding: 6px 0; color: #212529; font-weight: 500;">${sectionName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #6c757d;">Roll No</td>
+          <td style="padding: 6px 0; color: #212529; font-weight: 500;">${studentData.rollNo || '-'}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #6c757d;">Gender</td>
+          <td style="padding: 6px 0; color: #212529; font-weight: 500;">${studentData.gender || '-'}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #6c757d;">DOB</td>
+          <td style="padding: 6px 0; color: #212529; font-weight: 500;">${dob}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #6c757d;">Father</td>
+          <td style="padding: 6px 0; color: #212529; font-weight: 500;">${studentData.parentName || '-'}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #6c757d;">Phone</td>
+          <td style="padding: 6px 0; color: #212529; font-weight: 500;">${studentData.phone || studentData.parentPhone || '-'}</td>
+        </tr>
+      </table>
+    </div>
+    <div style="border-top: 1px solid #dee2e6; padding: 10px 15px; text-align: center;">
+      <div style="font-size: 8px; color: #adb5bd;">This is a computer generated card.</div>
+    </div>
+  `;
   
-  drawField('Class', studentData.classGrade?.name || studentData.class?.name || '-', 10, y);
-  y += 7;
+  document.body.appendChild(cardHTML);
   
-  drawField('Section', studentData.section?.name || '-', 10, y);
-  y += 7;
-  
-  drawField('Roll No', studentData.rollNo || '-', 10, y);
-  y += 7;
-  
-  drawField('Gender', studentData.gender || '-', 10, y);
-  y += 7;
-  
-  drawField('DOB', studentData.dateOfBirth ? new Date(studentData.dateOfBirth).toLocaleDateString() : '-', 10, y);
-  y += 7;
-  
-  drawField('Father', studentData.parentName || '-', 10, y);
-  y += 7;
-  
-  drawField('Phone', studentData.phone || studentData.parentPhone || '-', 10, y);
-  y += 7;
-  
-  doc.setDrawColor(0, 51, 102);
-  doc.setLineWidth(0.3);
-  doc.line(10, y + 2, pageWidth - 10, y + 2);
-  
-  doc.setFontSize(6);
-  doc.setTextColor(100, 100, 100);
-  doc.text('This is a computer generated card. For queries contact school administration.', pageWidth / 2, y + 8, { align: 'center' });
-  
-  doc.save(`ID_Card_${studentData.studentId || 'student'}.pdf`);
+  try {
+    const canvas = await html2canvas(cardHTML, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      allowTaint: true
+    });
+    
+    const link = document.createElement('a');
+    link.download = `ID_Card_${studentData.studentId || 'student'}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch (error) {
+    console.error('Error generating ID card:', error);
+  } finally {
+    document.body.removeChild(cardHTML);
+  }
 };
 
 export const generateSOAPDF = async (studentData, fees) => {

@@ -290,9 +290,9 @@ function Students() {
     }
   };
 
-  const handleDownloadCard = (student) => {
+  const handleDownloadCard = async (student) => {
     try {
-      generateStudentCard(student);
+      await generateStudentCard(student);
       toast.success('Student card generated');
     } catch (err) {
       toast.error('Error generating student card');
