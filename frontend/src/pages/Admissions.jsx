@@ -524,11 +524,17 @@ function Admissions() {
                         )}
                         <div>
                           <h3 className="font-semibold text-lg text-gray-800">{studentName}</h3>
-                          <p className="text-sm text-gray-500">
-                            {inquiry.inquiryId || inquiry.inquiry?.inquiryNo}
-                            <span className="mx-2">•</span>
-                            {new Date(inquiry.inquiry?.date || inquiry.createdAt).toLocaleDateString()}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+                            <span>{inquiry.inquiryId || inquiry.inquiry?.inquiryNo}</span>
+                            {inquiry.registrationNumber && (
+                              <>
+                                <span>•</span>
+                                <span className="text-green-600 font-medium">Adm: {inquiry.registrationNumber}</span>
+                              </>
+                            )}
+                            <span>•</span>
+                            <span>{new Date(inquiry.inquiry?.date || inquiry.createdAt).toLocaleDateString()}</span>
+                          </div>
                         </div>
                       </div>
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${status.color} border`}>
