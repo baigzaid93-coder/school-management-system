@@ -1,4 +1,4 @@
-/* Student ID Card Styles */
+/* Student ID Card Styles - Horizontal */
 
 .id-card-modal-overlay {
   position: fixed;
@@ -17,7 +17,7 @@
 .id-card-container {
   background: white;
   border-radius: 16px;
-  max-width: 900px;
+  max-width: 950px;
   width: 100%;
   max-height: 95vh;
   overflow: hidden;
@@ -103,40 +103,33 @@
   transform: scale(1);
 }
 
-/* Front Card */
-.id-card {
-  width: 340px;
+/* Horizontal Card */
+.id-card.horizontal-card {
+  width: 580px;
+  height: 340px;
+  display: flex;
   background: white;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
   border: 1px solid #e0e0e0;
 }
 
-.card-header {
-  background: linear-gradient(135deg, #003366 0%, #1a5694 50%, #003366 100%);
-  padding: 20px;
-  position: relative;
-  overflow: hidden;
+/* Left Side */
+.card-left {
+  width: 200px;
+  background: linear-gradient(180deg, #003366 0%, #004d99 100%);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  color: white;
 }
 
-.card-header::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  right: -50%;
-  width: 100%;
-  height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transform: rotate(30deg);
-}
-
-.school-info {
+.header-section {
   display: flex;
   align-items: center;
-  gap: 12px;
-  position: relative;
-  z-index: 1;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .logo-area {
@@ -144,75 +137,72 @@
 }
 
 .school-logo {
-  width: 50px;
-  height: 50px;
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
   object-fit: cover;
   border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .logo-placeholder {
-  width: 50px;
-  height: 50px;
+  width: 36px;
+  height: 36px;
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 18px;
   font-weight: bold;
-  color: white;
 }
 
-.school-details {
+.school-text {
   flex: 1;
+  min-width: 0;
 }
 
 .school-name {
-  margin: 0;
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 700;
-  color: white;
+  margin: 0;
   line-height: 1.2;
+  color: white;
 }
 
 .school-tagline {
-  margin: 4px 0 0;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.8);
-  font-style: italic;
+  font-size: 7px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 2px 0 0;
 }
 
 .card-title {
-  background: #f0f4f8;
   text-align: center;
-  padding: 10px;
-  font-size: 13px;
+  font-size: 9px;
   font-weight: 600;
-  color: #003366;
+  color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
-  letter-spacing: 1px;
-  border-bottom: 2px solid #003366;
-}
-
-.card-body {
-  padding: 16px;
+  letter-spacing: 0.5px;
+  padding: 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 12px;
 }
 
 .photo-section {
+  flex: 1;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .photo-frame {
-  width: 100px;
-  height: 110px;
-  border: 3px solid #003366;
-  border-radius: 10px;
+  width: 80px;
+  height: 90px;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
   overflow: hidden;
-  background: #f5f7fa;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .student-photo {
@@ -227,43 +217,71 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
+  font-size: 28px;
   font-weight: bold;
-  color: #003366;
-  background: linear-gradient(135deg, #e8f4fd 0%, #d4e9f7 100%);
+  color: rgba(255, 255, 255, 0.5);
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.2));
+}
+
+.qr-section {
+  width: 50px;
+  height: 50px;
+  background: white;
+  border-radius: 4px;
+  padding: 2px;
 }
 
 .qr-code {
-  width: 70px;
-  height: 70px;
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.qr-code img {
   width: 100%;
   height: 100%;
 }
 
 .qr-placeholder {
-  font-size: 10px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
   color: #999;
   font-weight: 600;
 }
 
-.info-grid {
-  margin-bottom: 12px;
+.signature-section {
+  text-align: center;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.signature-line {
+  width: 60px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.5);
+  margin: 0 auto 4px;
+}
+
+.signature-label {
+  font-size: 7px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Right Side */
+.card-right {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.info-section {
+  flex: 1;
 }
 
 .info-row {
   display: flex;
   justify-content: space-between;
-  padding: 6px 0;
+  align-items: center;
+  padding: 5px 0;
   border-bottom: 1px dashed #e8e8e8;
 }
 
@@ -272,17 +290,17 @@
 }
 
 .info-row .label {
-  font-size: 11px;
+  font-size: 10px;
   color: #666;
   font-weight: 500;
 }
 
 .info-row .value {
-  font-size: 11px;
+  font-size: 10px;
   color: #333;
   font-weight: 600;
   text-align: right;
-  max-width: 60%;
+  max-width: 55%;
 }
 
 .info-row .id-highlight {
@@ -292,18 +310,17 @@
   border-radius: 4px;
 }
 
-.info-grid-secondary {
+.info-secondary {
   display: flex;
-  justify-content: space-between;
   background: #f8fafc;
-  border-radius: 8px;
-  padding: 10px;
-  margin-top: 8px;
+  border-radius: 6px;
+  padding: 8px;
+  margin: 8px 0;
 }
 
 .info-item {
-  text-align: center;
   flex: 1;
+  text-align: center;
 }
 
 .info-item:not(:last-child) {
@@ -312,55 +329,30 @@
 
 .label-sm {
   display: block;
-  font-size: 9px;
+  font-size: 8px;
   color: #888;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   text-transform: uppercase;
 }
 
 .value-sm {
   display: block;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   color: #333;
 }
 
-.card-footer {
-  background: #f8fafc;
-  padding: 12px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  border-top: 1px solid #e0e0e0;
-}
-
-.signature-area {
-  text-align: center;
-}
-
-.signature-line {
-  width: 80px;
-  height: 1px;
-  background: #333;
-  margin-bottom: 4px;
-}
-
-.signature-label {
-  font-size: 8px;
-  color: #666;
-}
-
 .barcode-section {
   text-align: center;
+  margin-top: auto;
 }
 
 .barcode {
   display: flex;
   gap: 1px;
   justify-content: center;
-  height: 30px;
+  height: 24px;
   align-items: flex-end;
-  margin-bottom: 4px;
 }
 
 .bar-code-line {
@@ -369,18 +361,20 @@
 
 .bar-code-line.thin {
   width: 1px;
-  height: 20px;
+  height: 16px;
 }
 
 .bar-code-line.thick {
-  width: 3px;
-  height: 30px;
+  width: 2px;
+  height: 24px;
 }
 
 .barcode-number {
-  font-size: 8px;
+  font-size: 7px;
   color: #666;
   font-family: monospace;
+  display: block;
+  margin-top: 2px;
 }
 
 /* Back Card */
@@ -389,112 +383,128 @@
 }
 
 .back-header {
-  background: linear-gradient(135deg, #003366 0%, #1a5694 100%);
-  padding: 16px 20px;
-}
-
-.school-name-back {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: white;
+  background: linear-gradient(180deg, #003366 0%, #004d99 100%);
+  padding: 12px 16px;
   text-align: center;
 }
 
-.back-body {
-  padding: 16px;
+.back-school-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  margin: 0;
 }
 
-.info-block {
-  margin-bottom: 14px;
-  background: white;
-  border-radius: 8px;
+.back-content {
+  flex: 1;
   padding: 12px;
-  border-left: 3px solid #003366;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
 }
 
-.block-title {
-  font-size: 11px;
+.back-section {
+  background: white;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.section-title {
+  font-size: 9px;
   font-weight: 700;
   color: #003366;
   margin: 0 0 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 4px;
 }
 
-.block-content {
-  font-size: 10px;
+.contact-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8px;
   color: #444;
 }
 
-.info-line {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 4px 0;
+.contact-item .icon {
+  font-size: 9px;
 }
 
-.info-line .icon {
-  font-size: 11px;
-  flex-shrink: 0;
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
 }
 
-.info-line .label-sm {
-  display: inline;
-  font-size: 10px;
-  color: #666;
-  margin-right: 4px;
+.grid-item {
+  background: #f8fafc;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.grid-item .label-sm {
+  display: block;
+  font-size: 7px;
+  color: #888;
+  margin-bottom: 1px;
+}
+
+.grid-item .value-sm {
+  display: block;
+  font-size: 8px;
+  font-weight: 600;
+  color: #333;
 }
 
 .if-found-box {
   background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
   border: 1px solid #ffc107;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 14px;
+  border-radius: 6px;
+  padding: 8px;
   text-align: center;
 }
 
 .if-found-box h3 {
-  font-size: 12px;
+  font-size: 9px;
   font-weight: 700;
   color: #856404;
-  margin: 0 0 6px;
+  margin: 0 0 4px;
 }
 
 .if-found-box p {
-  font-size: 10px;
+  font-size: 7px;
   color: #856404;
   margin: 0;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
-.terms-section {
+.terms-box {
   background: #e9ecef;
-  border-radius: 6px;
-  padding: 10px;
-  margin-bottom: 12px;
+  border-radius: 4px;
+  padding: 6px;
 }
 
-.terms-section p {
-  font-size: 8px;
+.terms-box p {
+  font-size: 7px;
   color: #666;
   margin: 0;
   text-align: center;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .back-footer {
+  padding: 8px 16px;
   background: white;
-  flex-direction: column;
-  gap: 12px;
-  align-items: center;
-}
-
-.validity-text {
-  font-size: 10px;
-  color: #666;
-  font-weight: 500;
+  text-align: center;
 }
 
 /* Action Buttons */
@@ -565,6 +575,13 @@
 
   .id-card-side.hidden {
     display: none;
+  }
+
+  .id-card.horizontal-card {
+    width: 100%;
+    max-width: 580px;
+    height: auto;
+    min-height: 340px;
   }
 
   .card-actions {
