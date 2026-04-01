@@ -728,12 +728,7 @@ function Admissions() {
                     {modalMode === 'edit' && 'Edit Inquiry'}
                     {modalMode === 'convert' && 'Convert to Admission'}
                   </h2>
-                  <div className="flex gap-4 text-sm text-gray-500">
-                    <span>Inquiry #: {formData.inquiry?.inquiryNo || 'New'}</span>
-                    {formData.registrationNumber && (
-                      <span className="font-semibold text-green-600">Admission #: {formData.registrationNumber}</span>
-                    )}
-                  </div>
+                  <p className="text-sm text-gray-500">#{formData.inquiry?.inquiryNo || 'New'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
