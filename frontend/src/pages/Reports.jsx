@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { BarChart3, FileText, Download, Users, BookOpen, DollarSign, Calendar, TrendingUp, Filter, Printer, User, Briefcase, FileSpreadsheet } from 'lucide-react';
+import { BarChart3, FileText, Download, Users, BookOpen, DollarSign, Calendar, TrendingUp, Filter, Printer, User, Briefcase, FileSpreadsheet, Lock } from 'lucide-react';
 import { classGradeService, studentService, attendanceService, feeService, teacherService, expenseService } from '../services/api';
 import { generateSOAPDF, generateTeacherSOAPDF, generateFamilyChallanPDF } from '../utils/pdfGenerator';
 import LetterHeadPrint from '../components/LetterHeadPrint';
 import useToast from '../hooks/useToast';
+import { useAuth } from '../context/AuthContext';
 
 function Reports() {
+  const { hasPermission } = useAuth();
   const toast = useToast();
   const [searchParams] = useSearchParams();
   const [reportType, setReportType] = useState('students');
@@ -325,12 +327,12 @@ function Reports() {
   };
 
   const reportTypes = [
-    { id: 'students', name: 'Student Report', icon: Users, color: 'blue' },
-    { id: 'attendance', name: 'Attendance Report', icon: Calendar, color: 'green' },
-    { id: 'fees', name: 'Fee Report', icon: DollarSign, color: 'purple' },
-    { id: 'grades', name: 'Grade Report', icon: TrendingUp, color: 'orange' },
-    { id: 'finance', name: 'Financial Report', icon: BarChart3, color: 'red' },
-    { id: 'soa', name: 'Statement of Account', icon: FileText, color: 'indigo' }
+    { id: 'students', name: 'Student Report', icon: Users, color: 'blue', permission: 'student:view' },
+    { id: 'attendance', name: 'Attendance Report', icon: Calendar, color: 'green', permission: 'attendance:view' },
+    { id: 'fees', name: 'Fee Report', icon: DollarSign, color: 'purple', permission: 'fee:view' },
+    { id: 'grades', name: 'Grade Report', icon: TrendingUp, color: 'orange', permission: 'grade:view' },
+    { id: 'finance', name: 'Financial Report', icon: BarChart3, color: 'red', permission: 'expense:view' },
+    { id: 'soa', name: 'Statement of Account', icon: FileText, color: 'indigo', permission: '*' }
   ];
 
   // SOA Functions
@@ -526,6 +528,10 @@ function Reports() {
             <div className="space-y-2">
               {reportTypes.map((type) => {
                 const Icon = type.icon;
+                const hasAccess = type.permission === '*' || hasPermission(type.permission);
+                
+                if (!hasAccess) return null;
+                
                 return (
                   <button
                     key={type.id}
