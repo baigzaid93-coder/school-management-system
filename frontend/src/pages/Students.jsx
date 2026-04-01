@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Edit2, Trash2, X, Users, AlertCircle, Download, CreditCard, Plus, Eye, FileText, DollarSign, Phone, Mail, Calendar, BookOpen, User, UsersRound, FileDown } from 'lucide-react';
+import { Search, Edit2, Trash2, X, Users, AlertCircle, Download, CreditCard, Plus, Eye, FileText, DollarSign, Phone, Mail, Calendar, BookOpen, User, UsersRound, FileDown, Filter } from 'lucide-react';
 import { studentService, feeService, classGradeService } from '../services/api';
 import { generateFeeVoucherPDF, generateFamilyChallanPDF, generateBulkFeeVouchersPDF } from '../utils/pdfGenerator';
 import StudentIDCard from '../components/StudentIDCard';
 import useToast from '../hooks/useToast';
+import { useAuth } from '../context/AuthContext';
 
 function Students() {
   const toast = useToast();
   const navigate = useNavigate();
+  const { user, hasPermission } = useAuth();
   const [students, setStudents] = useState([]);
   const [classGrades, setClassGrades] = useState([]);
   const [sections, setSections] = useState([]);
@@ -25,6 +27,9 @@ function Students() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [selectedClass, setSelectedClass] = useState('');
+  const [isTeacher, setIsTeacher] = useState(false);
+  const [teacherAssignedClass, setTeacherAssignedClass] = useState(null);
   const [formData, setFormData] = useState({
     studentId: '',
     firstName: '',
@@ -43,6 +48,7 @@ function Students() {
   });
 
   useEffect(() => {
+    checkUserRole();
     loadStudents();
     loadClasses();
   }, []);
@@ -52,6 +58,28 @@ function Students() {
       loadStudents();
     }
   }, [searchQuery]);
+
+  const checkUserRole = () => {
+    const isAdmin = hasPermission('*') || hasPermission('student:view') || hasPermission('student:write');
+    const isTeacherUser = user?.role?.code === 'TEACHER' || user?.isTeacher;
+    
+    setIsTeacher(!isAdmin && isTeacherUser);
+    
+    if (isTeacherUser && user?.assignedClasses?.length > 0) {
+      const assignedClassId = user.assignedClasses[0];
+      setTeacherAssignedClass(assignedClassId);
+      setSelectedClass(assignedClassId);
+    }
+  };
+
+  const handleClassFilterChange = (classId) => {
+    if (isTeacher) {
+      setSelectedClass(teacherAssignedClass);
+    } else {
+      setSelectedClass(classId);
+      loadStudents(searchQuery, classId);
+    }
+  };
 
   const loadClasses = async () => {
     try {
@@ -75,12 +103,17 @@ function Students() {
     }
   };
 
-  const loadStudents = async (search = searchQuery) => {
+  const loadStudents = async (search = searchQuery, classId = selectedClass) => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await studentService.getAll({ search });
+      const params = { search };
+      if (classId) {
+        params.classGrade = classId;
+      }
+      
+      const response = await studentService.getAll(params);
       const data = response.data;
       
       if (Array.isArray(data)) {
@@ -396,15 +429,17 @@ function Students() {
               Download Vouchers ({selectedStudents.length})
             </button>
           )}
-          <button onClick={() => navigate('/students/admit')} className="btn btn-primary btn-md">
-            <Plus size={18} />
-            Add Student
-          </button>
+          {!isTeacher && (
+            <button onClick={() => navigate('/students/admit')} className="btn btn-primary btn-md">
+              <Plus size={18} />
+              Add Student
+            </button>
+          )}
         </div>
       </div>
 
       <div className="card p-6 mb-6">
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col md:flex-row gap-4 items-center">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input
@@ -416,6 +451,34 @@ function Students() {
               className="input pl-11"
             />
           </div>
+          
+          {!isTeacher && (
+            <div className="flex items-center gap-2">
+              <Filter size={18} className="text-slate-400" />
+              <select
+                value={selectedClass}
+                onChange={(e) => handleClassFilterChange(e.target.value)}
+                className="input py-2 px-4 min-w-[180px]"
+              >
+                <option value="">All Classes</option>
+                {classGrades.map(grade => (
+                  <option key={grade._id} value={grade._id}>
+                    {grade.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          
+          {isTeacher && teacherAssignedClass && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 rounded-lg border border-purple-200">
+              <BookOpen size={18} className="text-purple-600" />
+              <span className="text-sm font-medium text-purple-700">
+                Your Class: {classGrades.find(c => c._id === teacherAssignedClass)?.name || 'Assigned Class'}
+              </span>
+            </div>
+          )}
+          
           <button onClick={handleSearch} className="btn btn-primary btn-md">Search</button>
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} className="btn btn-secondary btn-md">Clear</button>
