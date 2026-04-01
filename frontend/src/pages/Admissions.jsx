@@ -730,10 +730,8 @@ function Admissions() {
                   </h2>
                   <div className="flex gap-4 text-sm text-gray-500">
                     <span>Inquiry #: {formData.inquiry?.inquiryNo || 'New'}</span>
-                    {formData.registrationNumber ? (
+                    {formData.registrationNumber && (
                       <span className="font-semibold text-green-600">Admission #: {formData.registrationNumber}</span>
-                    ) : (
-                      <span className="text-gray-400 italic">Admission #: Not assigned yet</span>
                     )}
                   </div>
                 </div>
@@ -758,9 +756,8 @@ function Admissions() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2 space-y-6">
                     <InquirySection title="1. Inquiry Information" icon={FileText}>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <FormField label="Inquiry No" value={formData.inquiry?.inquiryNo} readonly />
-                        <FormField label="Admission No" value={formData.registrationNumber || 'Not assigned yet'} readonly />
                         <FormField 
                           label="Inquiry Date" 
                           type="date"
