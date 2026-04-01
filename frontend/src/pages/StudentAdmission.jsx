@@ -30,7 +30,6 @@ function StudentAdmission() {
 
   const [formData, setFormData] = useState({
     admission: {
-      admissionNo: '',
       admissionDate: new Date().toISOString().split('T')[0],
       session: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1),
       classGrade: ''
@@ -570,21 +569,11 @@ function StudentAdmission() {
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+                    <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
                     <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                       <CreditCard size={18} className="text-indigo-600" /> Admission Information
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Admission No</label>
-                        <input
-                          type="text"
-                          value={formData.admission.admissionNo}
-                          onChange={(e) => handleChange('admission', 'admissionNo', e.target.value)}
-                          className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                          placeholder="Auto-generated"
-                        />
-                      </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1.5">Admission Date <span className="text-red-500">*</span></label>
                         <input
