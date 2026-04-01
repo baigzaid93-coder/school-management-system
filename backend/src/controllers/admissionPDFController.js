@@ -1,6 +1,7 @@
 const PDFDocument = require('pdfkit');
 const Student = require('../models/Student');
 const School = require('../models/School');
+const LetterHead = require('../models/LetterHead');
 
 const formatCurrency = (amount) => {
   return (amount || 0).toLocaleString('en-PK');
@@ -25,15 +26,17 @@ const numberToWords = (num) => {
 exports.generateAdmissionPDF = async (req, res) => {
   try {
     const { id } = req.params;
-    const student = await Student.findById(id).populate('school', 'name address phone email website tagline logo');
+    const student = await Student.findById(id).populate('school', 'name address phone email website tagline logo settings');
     
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
 
     const school = student.school;
+    const schoolId = school?._id || school;
+    const letterHead = schoolId ? await LetterHead.findOne({ school: schoolId }) : null;
     const admission = student.admissionForm || {};
-    const primaryColor = school?.branding?.primaryColor || '#003366';
+    const primaryColor = letterHead?.primaryColor || school?.branding?.primaryColor || '#003366';
     
     const doc = new PDFDocument({ 
       size: 'A4', 
@@ -73,27 +76,38 @@ exports.generateAdmissionPDF = async (req, res) => {
     const addHeader = () => {
       y = 15;
       
-      if (school?.logo) {
+      const logoData = letterHead?.logo;
+      if (logoData) {
         try {
-          doc.image(Buffer.from(school.logo, 'base64'), 20, y, { width: 40, height: 40 });
-        } catch (e) {}
+          let imgData = logoData;
+          if (logoData.includes(',')) {
+            imgData = logoData.split(',')[1];
+          }
+          const imgBuffer = Buffer.from(imgData, 'base64');
+          if (imgBuffer.length > 0) {
+            doc.image(imgBuffer, 20, y, { width: 40, height: 40 });
+          }
+        } catch (e) {
+          console.error('Logo image error:', e.message);
+        }
       }
       
+      const textStartX = logoData ? 70 : 20;
       doc.fontSize(16).fillColor(primaryColor).font('Helvetica-Bold');
-      doc.text(school?.name || 'School Name', school?.logo ? 70 : 20, y + 8);
+      doc.text(letterHead?.headerText || school?.name || 'School Name', textStartX, y + 8);
       
       doc.fontSize(9).fillColor('#666666').font('Helvetica');
       let contactParts = [];
-      if (school?.address) contactParts.push(school.address);
-      if (school?.phone) contactParts.push('Ph: ' + school.phone);
-      if (school?.email) contactParts.push('Email: ' + school.email);
+      if (letterHead?.address || school?.address) contactParts.push(letterHead?.address || school?.address);
+      if (letterHead?.phone || school?.phone) contactParts.push('Ph: ' + (letterHead?.phone || school?.phone));
+      if (letterHead?.email || school?.email) contactParts.push('Email: ' + (letterHead?.email || school?.email));
       if (contactParts.length > 0) {
-        doc.text(contactParts.join(' | '), school?.logo ? 70 : 20, y + 20, { width: pageWidth - 90 });
+        doc.text(contactParts.join(' | '), textStartX, y + 20, { width: pageWidth - 90 });
       }
       
-      if (school?.slogan) {
+      if (letterHead?.tagline || school?.tagline) {
         doc.fontSize(9).fillColor('#666666').font('Helvetica-Oblique');
-        doc.text(school.slogan, school?.logo ? 70 : 20, y + 30, { width: pageWidth - 90 });
+        doc.text(letterHead?.tagline || school?.tagline, textStartX, y + 30, { width: pageWidth - 90 });
         y += 40;
       } else {
         y += 35;
