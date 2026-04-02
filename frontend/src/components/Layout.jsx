@@ -399,6 +399,32 @@ function Layout() {
     }
   };
 
+  // Compute navigation sections BEFORE any useEffect that uses it
+  let navigationSections = [];
+  try {
+    if (user) {
+      const userRole = user?.role?.code;
+      if (isSaaSMode) {
+        navigationSections = saasNavSections;
+      } else if (userRole === 'TEACHER') {
+        navigationSections = teacherNavSections;
+      } else if (userRole === 'PARENT') {
+        navigationSections = parentNavSections;
+      } else if (userRole === 'STUDENT') {
+        navigationSections = studentNavSections;
+      } else {
+        // Admin - show all
+        navigationSections = schoolNavSections;
+        if (navigationSections.length === 0) {
+          navigationSections = [{ title: 'Overview', items: [{ path: '/', label: 'Dashboard', icon: LayoutDashboard }] }];
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error computing navigation:', e);
+    navigationSections = [];
+  }
+
   useEffect(() => {
     if (!navigationSections || navigationSections.length === 0) return;
     const allExpanded = {};
@@ -477,36 +503,6 @@ function Layout() {
       [index]: !prev[index]
     }));
   };
-
-  // Compute navigation sections with proper null safety - MUST come after all dependencies
-  let navigationSections = [];
-  if (user) {
-    const userRole = user?.role?.code;
-    if (isSaaSMode) {
-      navigationSections = saasNavSections;
-    } else if (userRole === 'TEACHER') {
-      navigationSections = teacherNavSections;
-    } else if (userRole === 'PARENT') {
-      navigationSections = parentNavSections;
-    } else if (userRole === 'STUDENT') {
-      navigationSections = studentNavSections;
-    } else {
-      // Admin - filter by permissions
-      navigationSections = schoolNavSections.map(section => ({
-        ...section,
-        items: section.items.filter(item => {
-          if (item.showForRoles) return item.showForRoles.includes(user?.role?.code);
-          if (item.permission) return true; // Show all for admin without proper permissions
-          return true;
-        })
-      })).filter(section => section.items.length > 0);
-      
-      // Ensure Dashboard is always visible for admin
-      if (navigationSections.length === 0) {
-        navigationSections = [{ title: 'Overview', items: [{ path: '/', label: 'Dashboard', icon: LayoutDashboard }] }];
-      }
-    }
-  }
 
   const handleLogout = async () => {
     await logout();
