@@ -20,15 +20,8 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: false,
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-            'vendor-ui': ['lucide-react'],
-            'vendor-utils': ['axios', 'jspdf', 'jspdf-autotable']
-          }
-        }
-      }
+      minify: 'esbuild',
+      chunkSizeWarningLimit: 1000
     }
   }
 })
