@@ -59,9 +59,13 @@ function TeacherDashboard() {
 
   const loadCourseStudents = async (courseId) => {
     try {
-      const res = await api.get(`/courses/${courseId}/students`);
-      const students = res.data.students || res.data || [];
-      setSelectedCourse({ ...selectedCourse, students });
+      // First, get the course to see if it already has students
+      const courseRes = await api.get(`/courses/${courseId}`);
+      const course = courseRes.data;
+      
+      // Use course's own students or fetch from endpoint
+      const students = course.students || [];
+      setSelectedCourse({ ...course, students });
       
       const attRes = await api.get(`/attendance/course/${courseId}`, {
         params: { date: attendanceDate }
