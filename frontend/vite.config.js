@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: true,
+      allowedHosts: ['.trycloudflare.com', '.ngrok-free.app', '.loca.lt'],
       proxy: env.VITE_API_URL?.startsWith('http') ? {} : {
         '/api': {
           target: 'http://localhost:5000',
@@ -18,7 +19,16 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'dist',
-      sourcemap: false
+      sourcemap: false,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-ui': ['lucide-react'],
+            'vendor-utils': ['axios', 'jspdf', 'jspdf-autotable']
+          }
+        }
+      }
     }
   }
 })
