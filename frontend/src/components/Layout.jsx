@@ -293,10 +293,14 @@ function Layout() {
   const inSchoolMode = !!currentSchoolId;
 
   useEffect(() => {
-    if (!loading && user) {
-      setInitialLoadComplete(true);
-    }
-  }, [loading, user]);
+    // Always set to true after a short delay if user exists, to ensure we don't get stuck
+    const timer = setTimeout(() => {
+      if (user && !loading) {
+        setInitialLoadComplete(true);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [user, loading]);
 
   useEffect(() => {
     const fetchSchoolLogo = async () => {
