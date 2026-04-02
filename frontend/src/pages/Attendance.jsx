@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Plus, Check, X, AlertCircle, Calendar, Users, Download, Filter } from 'lucide-react';
 import { attendanceService, studentService, classGradeService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import useToast from '../hooks/useToast';
 
 function Attendance() {
   const toast = useToast();
+  const { user } = useAuth();
   const [attendance, setAttendance] = useState([]);
   const [allStudents, setAllStudents] = useState([]);
   const [classGrades, setClassGrades] = useState([]);
@@ -16,19 +19,63 @@ function Attendance() {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkRecords, setBulkRecords] = useState([]);
   const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, total: 0 });
+  const [isTeacher, setIsTeacher] = useState(false);
+  const [teacherClassId, setTeacherClassId] = useState(null);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    checkUserRole();
+  }, [user]);
+
+  useEffect(() => {
+    if (!loading && selectedClass) {
+      loadAttendance();
+    }
+  }, [selectedClass, selectedDate]);
+
+  const checkUserRole = async () => {
+    const roleCode = user?.role?.code;
+    if (roleCode === 'TEACHER') {
+      setIsTeacher(true);
+      try {
+        const teacherRes = await api.get('/teachers/my-profile');
+        const teacherData = teacherRes.data;
+        if (teacherData.assignedClass) {
+          const classId = teacherData.assignedClass._id || teacherData.assignedClass;
+          setTeacherClassId(classId);
+          setSelectedClass(classId);
+        }
+      } catch (err) {
+        console.error('Error loading teacher profile:', err);
+      }
+    }
+    loadData();
+  };
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [studentsRes, classesRes] = await Promise.all([
-        studentService.getAll(),
-        classGradeService.getAll()
-      ]);
-      setAllStudents(studentsRes.data?.students || studentsRes.data || []);
-      setClassGrades(classesRes.data || []);
+      
+      let studentsRes, classesRes;
+      
+      if (isTeacher && teacherClassId) {
+        // Teachers only see their assigned class
+        classesRes = await classGradeService.getAll();
+        const teacherClasses = classesRes.data?.filter(c => c._id === teacherClassId || c._id === teacherClassId.toString()) || [];
+        setClassGrades(teacherClasses);
+        
+        studentsRes = await studentService.getAllPaginated({ classGrade: teacherClassId, all: 'true' });
+        setAllStudents(studentsRes.data?.students || []);
+      } else {
+        // Admin sees all
+        [studentsRes, classesRes] = await Promise.all([
+          studentService.getAll(),
+          classGradeService.getAll()
+        ]);
+        setAllStudents(studentsRes.data?.students || studentsRes.data || []);
+        setClassGrades(classesRes.data || []);
+      }
+      
       await loadAttendance();
     } catch (err) {
       console.error('Failed to load data:', err);
@@ -40,10 +87,23 @@ function Attendance() {
 
   const loadAttendance = async () => {
     try {
-      const response = await attendanceService.getAll();
-      const dateFiltered = response.data.filter(a => a.date?.startsWith(selectedDate));
-      setAttendance(dateFiltered);
-      calculateStats(dateFiltered);
+      let params = {};
+      if (isTeacher && teacherClassId) {
+        params.classGrade = teacherClassId;
+      } else if (selectedClass) {
+        params.classGrade = selectedClass;
+      }
+      
+      const response = await attendanceService.getAll(params);
+      let records = response.data || [];
+      
+      // Filter by date
+      if (selectedDate) {
+        records = records.filter(a => a.date?.startsWith(selectedDate));
+      }
+      
+      setAttendance(records);
+      calculateStats(records);
     } catch (error) {
       console.error('Failed to load attendance:', error);
     }
@@ -257,12 +317,13 @@ function Attendance() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Filter size={14} className="inline mr-1" /> Class
+              <Filter size={14} className="inline mr-1" /> {isTeacher ? 'My Class' : 'Class'}
             </label>
             <select value={selectedClass}
               onChange={(e) => { setSelectedClass(e.target.value); setSelectedSection(''); }}
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 min-w-[160px]">
-              <option value="">All Classes</option>
+              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 min-w-[160px]"
+              disabled={isTeacher && teacherClassId}>
+              <option value="">{isTeacher ? 'Select Class' : 'All Classes'}</option>
               {classGrades.map(c => (
                 <option key={c._id} value={c._id}>{c.name} ({c.code})</option>
               ))}
