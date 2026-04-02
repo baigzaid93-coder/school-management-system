@@ -33,6 +33,8 @@ function RoleBasedDashboard() {
   const userRole = getUserRole();
 
   useEffect(() => {
+    // Only redirect if userRole is a known role (teacher/parent/student)
+    // Don't redirect if userRole is null (admin or other roles)
     if (userRole === 'teacher') {
       navigate('/teacher-portal');
       return;
@@ -45,15 +47,18 @@ function RoleBasedDashboard() {
       navigate('/profile');
       return;
     }
+    // For null (admin) or undefined, stay on dashboard
   }, [userRole, navigate]);
 
   useEffect(() => {
+    if (!user) return;
+    
     if (showSaaSDashboard) {
       loadSchools();
     } else {
       loadDashboardData();
     }
-  }, [currentSchool]);
+  }, [currentSchool, user]);
 
   const loadSchools = async () => {
     try {

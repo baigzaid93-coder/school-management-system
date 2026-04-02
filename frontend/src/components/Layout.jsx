@@ -478,6 +478,10 @@ function Layout() {
         return item.showForRoles.includes(user?.role?.code);
       }
       if (item.permission) {
+        // For admin users without proper permissions, show all items temporarily
+        if (!user?.role?.permissions || user.role.permissions.length === 0) {
+          return true;
+        }
         return user?.role?.permissions?.includes('*') || hasPermission(item.permission);
       }
       return true;

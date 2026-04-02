@@ -160,11 +160,11 @@ exports.login = async (req, res) => {
       user: {
         ...user.toObject(),
         isSuperAdmin: user.isSuperAdmin,
-        isSchoolAdmin: user.isSchoolAdmin
+        isSchoolAdmin: user.isSchoolAdmin,
+        role: user.role
       },
       accessToken,
-      refreshToken,
-      role: user.role
+      refreshToken
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
