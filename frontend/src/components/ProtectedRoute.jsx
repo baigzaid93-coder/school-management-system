@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 
 const ProtectedRoute = ({ children, allowedRoles, allowedPermissions, blockedRoles }) => {
   const { user, loading } = useAuth();
+  console.log('ProtectedRoute - user:', user, 'loading:', loading);
 
   if (loading) {
     return (
@@ -16,10 +17,12 @@ const ProtectedRoute = ({ children, allowedRoles, allowedPermissions, blockedRol
   }
 
   if (!user) {
+    console.log('ProtectedRoute - no user, redirecting to login');
     return <Navigate to="/login" replace />;
   }
 
   const userRole = user.role?.code;
+  console.log('ProtectedRoute - userRole:', userRole);
 
   if (blockedRoles) {
     const blocked = Array.isArray(blockedRoles) ? blockedRoles : [blockedRoles];

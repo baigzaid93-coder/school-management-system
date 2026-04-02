@@ -22,14 +22,17 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const checkAuth = async () => {
+    console.log('AuthContext - checkAuth called');
     const token = localStorage.getItem('accessToken');
     const savedSchool = localStorage.getItem('schoolData');
     const savedSchoolId = localStorage.getItem('currentSchoolId');
     
     if (token) {
       try {
+        console.log('AuthContext - making /auth/me request');
         const response = await api.get('/auth/me');
         const userData = response.data;
+        console.log('AuthContext - got user data:', userData);
         setUser(userData);
         localStorage.setItem('userData', JSON.stringify(userData));
         
@@ -45,12 +48,14 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem('currentSchoolId', userData.school);
         }
       } catch (error) {
+        console.error('AuthContext - checkAuth failed:', error);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         setUser(null);
         setCurrentSchool(null);
       }
     }
+    console.log('AuthContext - setting loading to false');
     setLoading(false);
   };
 

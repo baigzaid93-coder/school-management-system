@@ -293,8 +293,10 @@ function Layout() {
   const inSchoolMode = !!currentSchoolId;
 
   useEffect(() => {
+    console.log('Layout - user:', user, 'loading:', loading, 'initialLoadComplete:', initialLoadComplete);
     // Always set to true after a short delay if user exists, to ensure we don't get stuck
     const timer = setTimeout(() => {
+      console.log('Layout - setting initialLoadComplete to true, user:', !!user, 'loading:', loading);
       if (user && !loading) {
         setInitialLoadComplete(true);
       }
