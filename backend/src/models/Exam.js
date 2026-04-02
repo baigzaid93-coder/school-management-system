@@ -2,11 +2,13 @@ const mongoose = require('mongoose');
 
 const examSchema = new mongoose.Schema({
   examId: { type: String, required: true, unique: true },
+  school: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   name: { type: String, required: true },
   description: String,
   examType: { type: mongoose.Schema.Types.ObjectId, ref: 'ExamType', required: true },
   classGrade: { type: mongoose.Schema.Types.ObjectId, ref: 'ClassGrade', required: true },
-  academicYear: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicYear', required: true },
+  academicYear: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicYear' },
+  academicYearName: { type: String },
   term: { type: mongoose.Schema.Types.ObjectId, ref: 'Term' },
   subjects: [{ 
     subject: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },

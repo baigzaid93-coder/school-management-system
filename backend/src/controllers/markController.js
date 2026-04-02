@@ -37,7 +37,8 @@ exports.getByStudent = async (req, res) => {
 exports.getByExam = async (req, res) => {
   try {
     const marks = await Mark.find({ exam: req.params.examId })
-      .populate('student', 'firstName lastName studentId rollNumber');
+      .populate('student', 'firstName lastName studentId rollNumber')
+      .populate('subject', 'name code');
     res.json(marks);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -57,8 +58,33 @@ exports.create = async (req, res) => {
 exports.bulkCreate = async (req, res) => {
   try {
     const { marks } = req.body;
-    const created = await Mark.insertMany(marks);
-    res.status(201).json({ message: `${created.length} marks created`, created });
+    const schoolId = req.tenantQuery?.school || req.user?.school;
+    
+    const results = [];
+    for (const markData of marks) {
+      // Try to find existing mark by exam + student + subject
+      const existing = await Mark.findOne({
+        exam: markData.exam,
+        student: markData.student,
+        subject: markData.subject
+      });
+      
+      if (existing) {
+        // Update existing
+        existing.marksObtained = markData.marksObtained;
+        existing.maxMarks = markData.maxMarks;
+        existing.isAbsent = markData.isAbsent;
+        await existing.save();
+        results.push(existing);
+      } else {
+        // Create new
+        const mark = new Mark({ ...markData, school: schoolId });
+        await mark.save();
+        results.push(mark);
+      }
+    }
+    
+    res.status(201).json({ message: `${results.length} marks saved`, created: results });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -66,7 +92,11 @@ exports.bulkCreate = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const mark = await Mark.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const mark = await Mark.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!mark) return res.status(404).json({ message: 'Mark not found' });
     res.json(mark);
   } catch (error) {
@@ -76,7 +106,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const mark = await Mark.findByIdAndDelete(req.params.id);
+    const mark = await Mark.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!mark) return res.status(404).json({ message: 'Mark not found' });
     res.json({ message: 'Mark deleted successfully' });
   } catch (error) {

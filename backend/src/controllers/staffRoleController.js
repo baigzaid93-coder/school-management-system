@@ -21,7 +21,11 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const role = await StaffRole.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const role = await StaffRole.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!role) return res.status(404).json({ message: 'Role not found' });
     res.json(role);
   } catch (error) {
@@ -31,7 +35,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const role = await StaffRole.findByIdAndDelete(req.params.id);
+    const role = await StaffRole.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!role) return res.status(404).json({ message: 'Role not found' });
     res.json({ message: 'Role deleted successfully' });
   } catch (error) {

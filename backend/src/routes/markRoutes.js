@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, tenantFilter } = require('../middleware/auth');
+const { setSchoolFromTenant } = require('../middleware/tenant');
 const controller = require('../controllers/markController');
 
 router.use(authenticate, tenantFilter());
@@ -9,8 +10,8 @@ router.get('/', controller.getAll);
 router.get('/student/:studentId', controller.getByStudent);
 router.get('/exam/:examId', controller.getByExam);
 router.get('/report-card', controller.getReportCard);
-router.post('/', controller.create);
-router.post('/bulk', controller.bulkCreate);
+router.post('/', setSchoolFromTenant, controller.create);
+router.post('/bulk', setSchoolFromTenant, controller.bulkCreate);
 router.put('/:id', controller.update);
 router.delete('/:id', controller.delete);
 

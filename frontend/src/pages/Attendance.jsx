@@ -66,19 +66,17 @@ function Attendance() {
     let filtered = records;
     
     if (selectedClass) {
-      const classStudents = allStudents.filter(s => 
-        (s.classGrade?._id === selectedClass || s.classGrade === selectedClass)
-      );
-      const studentIds = classStudents.map(s => s._id);
-      filtered = filtered.filter(r => studentIds.includes(r.student?._id || r.student));
+      filtered = filtered.filter(r => {
+        const student = allStudents.find(s => s._id === (r.student?._id || r.student));
+        return student && (student.classGrade?._id === selectedClass || student.classGrade === selectedClass);
+      });
     }
     
     if (selectedSection) {
-      const sectionStudents = allStudents.filter(s => 
-        (s.section?._id === selectedSection || s.section === selectedSection)
-      );
-      const studentIds = sectionStudents.map(s => s._id);
-      filtered = filtered.filter(r => studentIds.includes(r.student?._id || r.student));
+      filtered = filtered.filter(r => {
+        const student = allStudents.find(s => s._id === (r.student?._id || r.student));
+        return student && (student.section?._id === selectedSection || student.section === selectedSection);
+      });
     }
     
     return filtered;
@@ -330,7 +328,7 @@ function Attendance() {
                     )}
                   </div>
                   <div className="text-xs text-gray-500 mb-3">
-                    {student.classGrade?.name || 'No Class'} 
+                    {student.classGrade?.name || 'No Class'}
                     {student.section?.name && ` - Section ${student.section.name}`}
                   </div>
                   {record ? (

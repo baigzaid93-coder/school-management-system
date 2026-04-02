@@ -12,9 +12,30 @@ exports.getAll = async (req, res) => {
   }
 };
 
+exports.getMyProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    const query = { email: user.email };
+    if (req.tenantQuery?.school) {
+      query.school = req.tenantQuery.school;
+    }
+    
+    const parent = await Parent.findOne(query)
+      .populate('students', 'firstName lastName studentId classGrade school');
+    
+    if (!parent) return res.status(404).json({ message: 'Parent profile not found' });
+    
+    res.json(parent);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 exports.getById = async (req, res) => {
   try {
-    const parent = await Parent.findById(req.params.id).populate('students', 'firstName lastName studentId').populate('userId', 'username email isActive role');
+    const parent = await Parent.findOne({ _id: req.params.id, ...req.tenantQuery }).populate('students', 'firstName lastName studentId').populate('userId', 'username email isActive role');
     if (!parent) return res.status(404).json({ message: 'Parent not found' });
     res.json(parent);
   } catch (error) {
@@ -68,7 +89,11 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const parent = await Parent.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('userId', 'username email isActive role');
+    const parent = await Parent.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    ).populate('userId', 'username email isActive role');
     if (!parent) return res.status(404).json({ message: 'Parent not found' });
     res.json(parent);
   } catch (error) {
@@ -78,7 +103,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const parent = await Parent.findByIdAndDelete(req.params.id);
+    const parent = await Parent.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!parent) return res.status(404).json({ message: 'Parent not found' });
     
     if (parent.userId) {

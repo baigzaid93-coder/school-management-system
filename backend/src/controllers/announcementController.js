@@ -19,7 +19,7 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const announcement = await Announcement.findById(req.params.id)
+    const announcement = await Announcement.findOne({ _id: req.params.id, ...req.tenantQuery })
       .populate('publishedBy', 'profile.firstName profile.lastName');
     if (!announcement) return res.status(404).json({ message: 'Announcement not found' });
     
@@ -44,7 +44,11 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const announcement = await Announcement.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const announcement = await Announcement.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!announcement) return res.status(404).json({ message: 'Announcement not found' });
     res.json(announcement);
   } catch (error) {
@@ -54,7 +58,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const announcement = await Announcement.findByIdAndDelete(req.params.id);
+    const announcement = await Announcement.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!announcement) return res.status(404).json({ message: 'Announcement not found' });
     res.json({ message: 'Announcement deleted successfully' });
   } catch (error) {

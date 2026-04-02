@@ -14,7 +14,7 @@ exports.getAllCourses = async (req, res) => {
 
 exports.getCourseById = async (req, res) => {
   try {
-    const course = await Course.findById(req.params.id)
+    const course = await Course.findOne({ _id: req.params.id, ...req.tenantQuery })
       .populate('teacher', 'firstName lastName email phone')
       .populate('students', 'firstName lastName studentId');
     if (!course) return res.status(404).json({ message: 'Course not found' });
@@ -36,7 +36,7 @@ exports.createCourse = async (req, res) => {
 
 exports.updateCourse = async (req, res) => {
   try {
-    const course = await Course.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const course = await Course.findOneAndUpdate({ _id: req.params.id, ...req.tenantQuery }, req.body, { new: true });
     if (!course) return res.status(404).json({ message: 'Course not found' });
     res.json(course);
   } catch (error) {
@@ -46,7 +46,7 @@ exports.updateCourse = async (req, res) => {
 
 exports.deleteCourse = async (req, res) => {
   try {
-    const course = await Course.findByIdAndDelete(req.params.id);
+    const course = await Course.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!course) return res.status(404).json({ message: 'Course not found' });
     res.json({ message: 'Course deleted successfully' });
   } catch (error) {
@@ -56,7 +56,7 @@ exports.deleteCourse = async (req, res) => {
 
 exports.addStudentToCourse = async (req, res) => {
   try {
-    const course = await Course.findById(req.params.id);
+    const course = await Course.findOne({ _id: req.params.id, ...req.tenantQuery });
     if (!course) return res.status(404).json({ message: 'Course not found' });
     
     if (!course.students.includes(req.body.studentId)) {

@@ -1,17 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const schoolController = require('../controllers/schoolController');
-const { authenticate, isAuthenticated, isSuperAdmin } = require('../middleware/auth');
+const { requireSaaSAdmin, requireAuth } = require('../middleware/saasAuth');
 
-router.use(authenticate);
+router.use(requireAuth);
 
-router.get('/', isAuthenticated, schoolController.getAll);
-router.get('/:id', isAuthenticated, schoolController.getById);
-router.post('/', isSuperAdmin, schoolController.create);
-router.put('/:id', isSuperAdmin, schoolController.update);
-router.patch('/:id/modules', isSuperAdmin, schoolController.updateModules);
-router.patch('/:id/subscription', isSuperAdmin, schoolController.updateSubscription);
-router.get('/:id/stats', isAuthenticated, schoolController.getStats);
-router.delete('/:id', isSuperAdmin, schoolController.delete);
+router.get('/', schoolController.getAll);
+router.get('/:id', schoolController.getById);
+router.post('/', requireSaaSAdmin, schoolController.create);
+router.put('/:id', requireSaaSAdmin, schoolController.update);
+router.patch('/:id/modules', requireSaaSAdmin, schoolController.updateModules);
+router.patch('/:id/subscription', requireSaaSAdmin, schoolController.updateSubscription);
+router.get('/:id/stats', requireSaaSAdmin, schoolController.getStats);
+router.delete('/:id', requireSaaSAdmin, schoolController.delete);
 
 module.exports = router;

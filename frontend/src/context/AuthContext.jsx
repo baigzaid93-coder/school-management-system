@@ -23,9 +23,8 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async () => {
     const token = localStorage.getItem('accessToken');
+    const savedSchool = localStorage.getItem('schoolData');
     const savedSchoolId = localStorage.getItem('currentSchoolId');
-    const savedSchoolData = localStorage.getItem('schoolData');
-    const savedUserData = localStorage.getItem('userData');
     
     if (token) {
       try {
@@ -34,37 +33,20 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
         localStorage.setItem('userData', JSON.stringify(userData));
         
-        if (userData.isSuperAdmin && savedSchoolId) {
-          try {
-            let schoolData = null;
-            
-            if (savedSchoolData) {
-              try {
-                schoolData = JSON.parse(savedSchoolData);
-              } catch (e) {
-                schoolData = null;
-              }
-            }
-            
-            if (!schoolData) {
-              const schoolRes = await api.get(`/schools/${savedSchoolId}`);
-              schoolData = schoolRes.data;
-              localStorage.setItem('schoolData', JSON.stringify(schoolData));
-            }
-            
-            if (schoolData && schoolData._id) {
-              setCurrentSchool(schoolData);
-            }
-          } catch (schoolError) {
-            console.warn('Failed to load school data:', schoolError.message);
-            setCurrentSchool({ _id: savedSchoolId, name: 'Loading...' });
-          }
+        // Restore school from localStorage if exists (for all users including super admins)
+        if (savedSchool) {
+          setCurrentSchool(JSON.parse(savedSchool));
+        } else if (savedSchoolId) {
+          // If only schoolId exists, restore basic school object
+          setCurrentSchool({ _id: savedSchoolId, name: userData.schoolName || 'School' });
+        } else if (userData.school && !userData.isSuperAdmin) {
+          // For non-super-admin users, auto-set their school
+          setCurrentSchool({ _id: userData.school, name: userData.schoolName || 'School' });
+          localStorage.setItem('currentSchoolId', userData.school);
         }
       } catch (error) {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        localStorage.removeItem('currentSchoolId');
-        localStorage.removeItem('schoolData');
         setUser(null);
         setCurrentSchool(null);
       }
@@ -83,16 +65,13 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('userData', JSON.stringify(user));
       
       setUser(user);
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('userData', JSON.stringify(user));
       
-      // If Super Admin, try to load their first school
-      if (user.isSuperAdmin) {
-        const schoolsRes = await api.get('/schools');
-        if (schoolsRes.data.length > 0) {
-          setCurrentSchool(schoolsRes.data[0]);
-          localStorage.setItem('currentSchoolId', schoolsRes.data[0]._id);
-        }
-      } else if (user.school) {
-        // For school admins, set the school ID from user data
+      // For school admins (non-super-admin), set the school ID from user data
+      // Super Admin will stay in SaaS mode - school is only set when explicitly selected
+      if (user.school && !user.isSuperAdmin) {
         localStorage.setItem('currentSchoolId', user.school);
         setCurrentSchool({ _id: user.school, name: user.schoolName || 'School' });
       }

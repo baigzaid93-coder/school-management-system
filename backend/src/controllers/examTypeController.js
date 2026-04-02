@@ -23,7 +23,11 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const examType = await ExamType.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const examType = await ExamType.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!examType) return res.status(404).json({ message: 'Exam type not found' });
     res.json(examType);
   } catch (error) {
@@ -33,7 +37,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const examType = await ExamType.findByIdAndDelete(req.params.id);
+    const examType = await ExamType.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!examType) return res.status(404).json({ message: 'Exam type not found' });
     res.json({ message: 'Exam type deleted successfully' });
   } catch (error) {

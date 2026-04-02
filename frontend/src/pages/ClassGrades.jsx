@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit2, Trash2, X, Users, BookOpen, AlertCircle, ChevronRight, UserPlus, UserMinus } from 'lucide-react';
 import { classGradeService, sectionService, studentService } from '../services/api';
 import useToast from '../hooks/useToast';
@@ -6,6 +6,8 @@ import useToast from '../hooks/useToast';
 function ClassGrades() {
   const toast = useToast();
   const [classGrades, setClassGrades] = useState([]);
+  const isInitialLoad = useRef(true);
+  const prevClassId = useRef(null);
   const [selectedClass, setSelectedClass] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
@@ -30,23 +32,24 @@ function ClassGrades() {
   });
 
   useEffect(() => {
-    loadClassGrades();
+    if (isInitialLoad.current) {
+      loadClassGrades();
+      isInitialLoad.current = false;
+    }
   }, []);
 
   useEffect(() => {
-    if (selectedClass) {
+    if (selectedClass?._id && selectedClass._id !== prevClassId.current) {
+      prevClassId.current = selectedClass._id;
       loadClassDetails(selectedClass._id);
     }
-  }, [selectedClass]);
+  }, [selectedClass?._id]);
 
   const loadClassGrades = async () => {
     try {
       setLoading(true);
       const response = await classGradeService.getAll();
       setClassGrades(response.data);
-      if (response.data.length > 0 && !selectedClass) {
-        setSelectedClass(response.data[0]);
-      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load classes');
     } finally {

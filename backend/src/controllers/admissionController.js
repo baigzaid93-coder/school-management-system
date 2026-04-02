@@ -5,14 +5,16 @@ const Fee = require('../models/Fee');
 const Course = require('../models/Course');
 const { generateStudentId } = require('../utils/idGenerator');
 
-const createAuditLog = async (userId, action, admissionId, details, req) => {
+const createAuditLog = async (userId, action, admissionId, details, req, schoolId) => {
   try {
     await AuditLog.create({
       user: userId,
       action,
-      resource: 'Admission',
-      resourceId: admissionId,
-      details,
+      module: 'ADMISSION',
+      entity: 'Admission',
+      entityId: admissionId,
+      newValues: details,
+      school: schoolId,
       ipAddress: req?.ip || req?.connection?.remoteAddress,
       userAgent: req?.headers?.['user-agent']
     });
@@ -77,7 +79,7 @@ const getAdmissions = async (req, res) => {
 
 const getAdmissionById = async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id)
+    const admission = await Admission.findOne({ _id: req.params.id, ...req.tenantQuery })
       .populate('createdBy', 'firstName lastName email')
       .populate('updatedBy', 'firstName lastName email');
     
@@ -109,10 +111,11 @@ const createInquiry = async (req, res) => {
     
     await createAuditLog(
       req.user?._id,
-      'CREATE_INQUIRY',
+      'CREATE',
       admission._id,
       { inquiryId: admission.inquiryId, studentName: req.body.student?.fullName },
-      req
+      req,
+      req.tenantQuery?.school
     );
     
     res.status(201).json(admission);
@@ -123,7 +126,7 @@ const createInquiry = async (req, res) => {
 
 const submitApplication = async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findOne({ _id: req.params.id, ...req.tenantQuery });
     
     if (!admission) {
       return res.status(404).json({ message: 'Admission not found' });
@@ -137,10 +140,11 @@ const submitApplication = async (req, res) => {
     
     await createAuditLog(
       req.user?._id,
-      'SUBMIT_APPLICATION',
+      'UPDATE',
       admission._id,
       { status: admission.applicationStatus },
-      req
+      req,
+      req.tenantQuery?.school
     );
     
     res.json(admission);
@@ -151,7 +155,7 @@ const submitApplication = async (req, res) => {
 
 const updateAdmission = async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findOne({ _id: req.params.id, ...req.tenantQuery });
     
     if (!admission) {
       return res.status(404).json({ message: 'Admission not found' });
@@ -199,10 +203,11 @@ const updateAdmission = async (req, res) => {
     
     await createAuditLog(
       req.user?._id,
-      'UPDATE_INQUIRY',
+      'UPDATE',
       admission._id,
       { updatedFields: Object.keys(req.body) },
-      req
+      req,
+      req.tenantQuery?.school
     );
     
     res.json(admission);
@@ -213,7 +218,7 @@ const updateAdmission = async (req, res) => {
 
 const deleteAdmission = async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findOne({ _id: req.params.id, ...req.tenantQuery });
     
     if (!admission) {
       return res.status(404).json({ message: 'Admission not found' });
@@ -223,14 +228,15 @@ const deleteAdmission = async (req, res) => {
       return res.status(400).json({ message: 'Cannot delete an enrolled student' });
     }
     
-    await Admission.findByIdAndDelete(req.params.id);
+    await Admission.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     
     await createAuditLog(
       req.user?._id,
-      'DELETE_INQUIRY',
+      'DELETE',
       req.params.id,
       { inquiryId: admission.inquiryId },
-      req
+      req,
+      req.tenantQuery?.school
     );
     
     res.json({ message: 'Inquiry deleted successfully' });
@@ -241,7 +247,7 @@ const deleteAdmission = async (req, res) => {
 
 const convertToAdmission = async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findOne({ _id: req.params.id, ...req.tenantQuery });
     
     if (!admission) {
       return res.status(404).json({ message: 'Admission not found' });
@@ -330,7 +336,7 @@ const convertToAdmission = async (req, res) => {
     
     await createAuditLog(
       req.user?._id,
-      'CONVERT_TO_ADMISSION',
+      'UPDATE',
       admission._id,
       { 
         inquiryId: admission.inquiryId,
@@ -338,7 +344,8 @@ const convertToAdmission = async (req, res) => {
         studentName: `${firstName} ${lastName}`,
         feesCreated: createdFees.length
       },
-      req
+      req,
+      req.tenantQuery?.school
     );
     
     res.json({
@@ -355,7 +362,7 @@ const convertToAdmission = async (req, res) => {
 
 const closeInquiry = async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findOne({ _id: req.params.id, ...req.tenantQuery });
     
     if (!admission) {
       return res.status(404).json({ message: 'Admission not found' });
@@ -368,10 +375,11 @@ const closeInquiry = async (req, res) => {
     
     await createAuditLog(
       req.user?._id,
-      'CLOSE_INQUIRY',
+      'UPDATE',
       admission._id,
       { inquiryId: admission.inquiryId },
-      req
+      req,
+      req.tenantQuery?.school
     );
     
     res.json(admission);
@@ -435,7 +443,7 @@ const getRequiredDocuments = async (req, res) => {
 
 const submitForApproval = async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findOne({ _id: req.params.id, ...req.tenantQuery });
     
     if (!admission) {
       return res.status(404).json({ message: 'Admission not found' });
@@ -452,10 +460,11 @@ const submitForApproval = async (req, res) => {
     
     await createAuditLog(
       req.user?._id,
-      'SUBMIT_FOR_APPROVAL',
+      'SUBMIT',
       admission._id,
       { status: 'principal-pending' },
-      req
+      req,
+      req.tenantQuery?.school
     );
     
     res.json(admission);
@@ -466,7 +475,7 @@ const submitForApproval = async (req, res) => {
 
 const principalApprove = async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findOne({ _id: req.params.id, ...req.tenantQuery });
     
     if (!admission) {
       return res.status(404).json({ message: 'Admission not found' });
@@ -489,10 +498,11 @@ const principalApprove = async (req, res) => {
     
     await createAuditLog(
       req.user?._id,
-      'PRINCIPAL_APPROVED',
+      'APPROVE',
       admission._id,
       { status: 'accounts-pending' },
-      req
+      req,
+      req.tenantQuery?.school
     );
     
     res.json(admission);
@@ -503,7 +513,7 @@ const principalApprove = async (req, res) => {
 
 const principalReject = async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findOne({ _id: req.params.id, ...req.tenantQuery });
     
     if (!admission) {
       return res.status(404).json({ message: 'Admission not found' });
@@ -522,10 +532,11 @@ const principalReject = async (req, res) => {
     
     await createAuditLog(
       req.user?._id,
-      'PRINCIPAL_REJECTED',
+      'REJECT',
       admission._id,
       { status: 'principal-rejected' },
-      req
+      req,
+      req.tenantQuery?.school
     );
     
     res.json(admission);
@@ -536,7 +547,7 @@ const principalReject = async (req, res) => {
 
 const accountsApprove = async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findOne({ _id: req.params.id, ...req.tenantQuery });
     
     if (!admission) {
       return res.status(404).json({ message: 'Admission not found' });
@@ -639,14 +650,15 @@ const accountsApprove = async (req, res) => {
     
     await createAuditLog(
       req.user?._id,
-      'ACCOUNTS_APPROVED',
+      'APPROVE',
       admission._id,
       { 
         status: 'enrolled',
         studentId: studentId,
         feesCreated: createdFees.length
       },
-      req
+      req,
+      req.tenantQuery?.school
     );
     
     res.json({
@@ -662,7 +674,7 @@ const accountsApprove = async (req, res) => {
 
 const accountsReject = async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findOne({ _id: req.params.id, ...req.tenantQuery });
     
     if (!admission) {
       return res.status(404).json({ message: 'Admission not found' });
@@ -681,10 +693,11 @@ const accountsReject = async (req, res) => {
     
     await createAuditLog(
       req.user?._id,
-      'ACCOUNTS_REJECTED',
+      'REJECT',
       admission._id,
       { status: 'accounts-rejected' },
-      req
+      req,
+      req.tenantQuery?.school
     );
     
     res.json(admission);

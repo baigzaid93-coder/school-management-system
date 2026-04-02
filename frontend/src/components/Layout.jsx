@@ -36,7 +36,8 @@ import {
   Search,
   Upload,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  User
 } from 'lucide-react';
 
 const saasNavSections = [
@@ -159,6 +160,110 @@ const schoolNavSections = [
       { path: '/roles', label: 'Roles & Permissions', icon: Shield, permission: 'settings:edit' },
       { path: '/settings', label: 'General Settings', icon: Settings, permission: 'settings:view' },
       { path: '/letter-head', label: 'Letter Head', icon: FileText, permission: 'settings:view' },
+    ]
+  },
+];
+
+const teacherNavSections = [
+  {
+    title: 'Overview',
+    items: [
+      { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    ]
+  },
+  {
+    title: 'Teacher Portal',
+    items: [
+      { path: '/teacher-portal', label: 'My Portal', icon: GraduationCap },
+    ]
+  },
+  {
+    title: 'Academic',
+    items: [
+      { path: '/timetable', label: 'My Timetable', icon: CalendarDays },
+      { path: '/courses', label: 'My Courses', icon: BookOpen },
+    ]
+  },
+  {
+    title: 'Academic Records',
+    items: [
+      { path: '/attendance', label: 'Take Attendance', icon: Calendar },
+      { path: '/grades', label: 'Manage Grades', icon: ClipboardCheck },
+    ]
+  },
+  {
+    title: 'Reports',
+    items: [
+      { path: '/reports', label: 'Reports', icon: BarChart3 },
+    ]
+  },
+  {
+    title: 'Profile',
+    items: [
+      { path: '/profile', label: 'My Profile', icon: UserCog },
+    ]
+  },
+];
+
+const parentNavSections = [
+  {
+    title: 'Overview',
+    items: [
+      { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    ]
+  },
+  {
+    title: 'Parent Portal',
+    items: [
+      { path: '/parent-portal', label: 'My Children', icon: Users },
+    ]
+  },
+  {
+    title: 'Academic',
+    items: [
+      { path: '/attendance', label: 'Attendance', icon: Calendar },
+      { path: '/grades', label: 'Grades & Progress', icon: ClipboardCheck },
+    ]
+  },
+  {
+    title: 'Finance',
+    items: [
+      { path: '/fees', label: 'Fees & Payments', icon: DollarSign },
+    ]
+  },
+  {
+    title: 'Profile',
+    items: [
+      { path: '/profile', label: 'My Profile', icon: UserCog },
+    ]
+  },
+];
+
+const studentNavSections = [
+  {
+    title: 'Overview',
+    items: [
+      { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    ]
+  },
+  {
+    title: 'My Profile',
+    items: [
+      { path: '/profile', label: 'My Profile', icon: User },
+    ]
+  },
+  {
+    title: 'Academic',
+    items: [
+      { path: '/attendance', label: 'My Attendance', icon: Calendar },
+      { path: '/grades', label: 'My Grades', icon: ClipboardCheck },
+      { path: '/timetable', label: 'My Timetable', icon: CalendarDays },
+    ]
+  },
+  {
+    title: 'Finance',
+    items: [
+      { path: '/fees', label: 'My Fees', icon: DollarSign },
     ]
   },
 ];
@@ -290,12 +395,11 @@ function Layout() {
 
   useEffect(() => {
     const allExpanded = {};
-    const sections = isSaaSMode ? saasNavSections : schoolNavSections;
-    sections.forEach((_, index) => {
+    navigationSections.forEach((_, index) => {
       allExpanded[index] = true;
     });
     setExpandedSections(allExpanded);
-  }, [isSaaSMode]);
+  }, [navigationSections]);
 
   useEffect(() => {
     const loadPendingCount = async () => {
@@ -380,6 +484,28 @@ function Layout() {
     })
   })).filter(section => section.items.length > 0);
 
+  const getUserRole = () => {
+    const roleCode = user?.role?.code;
+    if (roleCode === 'TEACHER') return 'teacher';
+    if (roleCode === 'PARENT') return 'parent';
+    if (roleCode === 'STUDENT') return 'student';
+    return null;
+  };
+
+  const getNavigationSections = () => {
+    if (isSaaSMode) return saasNavSections;
+    
+    const userRole = getUserRole();
+    
+    if (userRole === 'teacher') return teacherNavSections;
+    if (userRole === 'parent') return parentNavSections;
+    if (userRole === 'student') return studentNavSections;
+    
+    return filteredNavItems;
+  };
+
+  const navigationSections = getNavigationSections();
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -388,8 +514,7 @@ function Layout() {
   const isActive = (path) => location.pathname === path;
 
   const getBreadcrumb = () => {
-    const sections = isSaaSMode ? saasNavSections : schoolNavSections;
-    for (const section of sections) {
+    for (const section of navigationSections) {
       const item = section.items.find(item => item.path === location.pathname);
       if (item) return item.label;
     }
@@ -425,26 +550,39 @@ function Layout() {
         />
       )}
 
-      <aside className={`sidebar ${sidebarOpen ? '' : 'collapsed'} ${mobileMenuOpen ? 'open' : ''}`}>
-        <div className="flex flex-col h-full">
-          <div className="p-5 border-b border-white/10">
+      <aside 
+        className={`sidebar ${sidebarOpen ? '' : 'collapsed'} ${mobileMenuOpen ? 'open' : ''}`}
+        style={{ backgroundColor: '#ffffff', color: '#1e293b' }}
+      >
+        <div className="flex flex-col h-full" style={{ backgroundColor: '#ffffff' }}>
+          <div className="p-5 border-b border-slate-200 bg-white">
             <div className="flex items-center gap-3">
               {schoolLogo && !isSaaSMode ? (
-                <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center bg-white">
+                <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center bg-slate-100">
                   <img src={schoolLogo} alt="School Logo" className="w-full h-full object-contain" />
                 </div>
               ) : (
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
                   {isSaaSMode ? <Building2 size={22} className="text-white" /> : <GraduationCap size={22} className="text-white" />}
                 </div>
               )}
               {sidebarOpen && (
                 <div>
-                  <h1 className="font-bold text-lg text-white">
-                    {isSaaSMode ? 'SaaS Platform' : (currentSchool?.name || user?.school?.name || 'School MS')}
+                  <h1 className="font-bold text-lg text-slate-800">
+                    {isSaaSMode ? 'SaaS Platform' : (
+                      getUserRole() === 'teacher' ? 'Teacher Portal' : 
+                      getUserRole() === 'parent' ? 'Parent Portal' :
+                      getUserRole() === 'student' ? 'Student Portal' :
+                      (currentSchool?.name || user?.school?.name || 'School MS')
+                    )}
                   </h1>
-                  <p className="text-xs text-indigo-200">
-                    {isSaaSMode ? 'Multi-tenant Management' : (isSuperAdmin ? 'Super Admin View' : 'School Management')}
+                  <p className="text-xs text-slate-500">
+                    {isSaaSMode ? 'Multi-tenant Management' : (
+                      getUserRole() === 'teacher' ? 'Teacher Access' :
+                      getUserRole() === 'parent' ? 'Parent Access' :
+                      getUserRole() === 'student' ? 'Student Access' :
+                      (isSuperAdmin ? 'Super Admin View' : 'School Management')
+                    )}
                   </p>
                 </div>
               )}
@@ -452,12 +590,12 @@ function Layout() {
           </div>
 
           <nav className="flex-1 px-3 py-4 overflow-y-auto">
-            {(isSaaSMode ? saasNavSections : filteredNavItems).map((section, sectionIndex) => (
+            {navigationSections.map((section, sectionIndex) => (
               <div key={sectionIndex} className="mb-4">
                 {sidebarOpen && (
                   <button
                     onClick={() => toggleSection(sectionIndex)}
-                    className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-indigo-300 uppercase tracking-wider hover:text-white transition-colors"
+                    className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider hover:text-slate-600 transition-colors"
                   >
                     <span>{section.title}</span>
                     {expandedSections[sectionIndex] ? (
@@ -511,17 +649,17 @@ function Layout() {
             ))}
           </nav>
 
-          <div className="p-4 border-t border-white/10">
+          <div className="p-4 border-t border-slate-200 bg-white">
             <div className={`flex items-center gap-3 ${!sidebarOpen && 'justify-center'}`}>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-500 flex items-center justify-center text-white font-bold">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center text-white font-bold">
                 {user?.firstName?.[0]}{user?.lastName?.[0]}
               </div>
               {sidebarOpen && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">
+                  <p className="text-sm font-medium text-slate-800 truncate">
                     {user?.firstName} {user?.lastName}
                   </p>
-                  <p className="text-xs text-indigo-200 truncate">
+                  <p className="text-xs text-slate-500 truncate">
                     {isSaaSMode ? 'Super Admin' : user?.role?.name}
                   </p>
                 </div>
@@ -566,7 +704,7 @@ function Layout() {
             </div>
 
             <div className="flex items-center gap-2 md:gap-3">
-              {isSuperAdmin && !isSaaSMode && (
+              {isSuperAdmin && !isSaaSMode && getUserRole() === null && (
                 <div className="relative">
                   <button
                     onClick={() => setSchoolDropdownOpen(!schoolDropdownOpen)}

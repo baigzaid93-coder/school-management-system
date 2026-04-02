@@ -34,9 +34,13 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     if (req.body.isCurrent) {
-      await AcademicYear.updateMany({}, { isCurrent: false });
+      await AcademicYear.updateMany({ ...req.tenantQuery }, { isCurrent: false });
     }
-    const year = await AcademicYear.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const year = await AcademicYear.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!year) return res.status(404).json({ message: 'Academic year not found' });
     res.json(year);
   } catch (error) {
@@ -46,7 +50,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const year = await AcademicYear.findByIdAndDelete(req.params.id);
+    const year = await AcademicYear.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!year) return res.status(404).json({ message: 'Academic year not found' });
     res.json({ message: 'Academic year deleted successfully' });
   } catch (error) {

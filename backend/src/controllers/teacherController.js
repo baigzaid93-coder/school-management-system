@@ -38,7 +38,12 @@ exports.getMyProfile = async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     
-    const teacher = await Teacher.findOne({ email: user.email }).populate('courses', 'name code students');
+    const query = { email: user.email };
+    if (req.tenantQuery?.school) {
+      query.school = req.tenantQuery.school;
+    }
+    
+    const teacher = await Teacher.findOne(query).populate('courses', 'name code students').populate('assignedClass', 'name');
     if (!teacher) return res.status(404).json({ message: 'Teacher profile not found' });
     
     res.json(teacher);
@@ -49,7 +54,7 @@ exports.getMyProfile = async (req, res) => {
 
 exports.getTeacherById = async (req, res) => {
   try {
-    const teacher = await Teacher.findById(req.params.id).populate('courses', 'name code').populate('assignedClass', 'name').populate('userId', 'username email isActive role');
+    const teacher = await Teacher.findOne({ _id: req.params.id, ...req.tenantQuery }).populate('courses', 'name code').populate('assignedClass', 'name').populate('userId', 'username email isActive role');
     if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
     res.json(teacher);
   } catch (error) {
@@ -59,7 +64,7 @@ exports.getTeacherById = async (req, res) => {
 
 exports.updateTeacher = async (req, res) => {
   try {
-    const teacher = await Teacher.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('userId', 'username email isActive role');
+    const teacher = await Teacher.findOneAndUpdate({ _id: req.params.id, ...req.tenantQuery }, req.body, { new: true }).populate('userId', 'username email isActive role');
     if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
     res.json(teacher);
   } catch (error) {
@@ -69,7 +74,7 @@ exports.updateTeacher = async (req, res) => {
 
 exports.deleteTeacher = async (req, res) => {
   try {
-    const teacher = await Teacher.findByIdAndDelete(req.params.id);
+    const teacher = await Teacher.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
     
     if (teacher.userId) {
@@ -140,7 +145,11 @@ exports.createTeacher = async (req, res) => {
 
 exports.updateTeacher = async (req, res) => {
   try {
-    const teacher = await Teacher.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const teacher = await Teacher.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
     res.json(teacher);
   } catch (error) {
@@ -150,7 +159,7 @@ exports.updateTeacher = async (req, res) => {
 
 exports.deleteTeacher = async (req, res) => {
   try {
-    const teacher = await Teacher.findByIdAndDelete(req.params.id);
+    const teacher = await Teacher.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
     res.json({ message: 'Teacher deleted successfully' });
   } catch (error) {

@@ -40,7 +40,11 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const department = await Department.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const department = await Department.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!department) return res.status(404).json({ message: 'Department not found' });
     res.json(department);
   } catch (error) {
@@ -50,7 +54,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const department = await Department.findByIdAndDelete(req.params.id);
+    const department = await Department.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!department) return res.status(404).json({ message: 'Department not found' });
     res.json({ message: 'Department deleted successfully' });
   } catch (error) {

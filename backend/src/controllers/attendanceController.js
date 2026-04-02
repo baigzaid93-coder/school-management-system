@@ -4,14 +4,33 @@ const Teacher = require('../models/Teacher');
 
 exports.getAllAttendance = async (req, res) => {
   try {
-    const { attendeeType, date, classGrade } = req.query;
-    const query = { ...req.tenantQuery };
+    const { attendeeType, date, classGrade, courseId } = req.query;
+    let query = { ...req.tenantQuery };
+    
+    if (req.user.role?.code === 'TEACHER') {
+      const Teacher = require('../models/Teacher');
+      const teacher = await Teacher.findOne({ email: req.user.email, school: req.tenantQuery?.school });
+      if (teacher && teacher.courses && teacher.courses.length > 0) {
+        query.course = { $in: teacher.courses };
+      } else {
+        return res.json([]);
+      }
+    }
+    
+    if (req.user.role?.code === 'STUDENT') {
+      const student = await Student.findOne({ userId: req.user.id });
+      if (!student) return res.json([]);
+      query.student = student._id;
+    }
     
     if (attendeeType) {
       query.attendeeType = attendeeType;
     }
     if (classGrade) {
       query.classGrade = classGrade;
+    }
+    if (courseId && req.user.role?.code !== 'TEACHER') {
+      query.course = courseId;
     }
     if (date) {
       const startOfDay = new Date(date);
@@ -34,9 +53,28 @@ exports.getAllAttendance = async (req, res) => {
 exports.getAttendanceByStudent = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
+    
+    let studentId = req.params.studentId;
+    
+    if (req.user.role?.code === 'STUDENT') {
+      const student = await Student.findOne({ userId: req.user.id });
+      if (!student) return res.status(404).json({ message: 'Student profile not found' });
+      studentId = student._id;
+    }
+    
+    if (req.user.role?.code === 'PARENT') {
+      const Parent = require('../models/Parent');
+      const parent = await Parent.findOne({ userId: req.user.id }).populate('students');
+      if (!parent) return res.status(404).json({ message: 'Parent profile not found' });
+      const childIds = parent.students.map(s => s._id);
+      if (!childIds.includes(studentId)) {
+        return res.status(403).json({ message: 'You can only view your children\'s attendance' });
+      }
+    }
+    
     const query = { 
       attendeeType: 'student',
-      student: req.params.studentId,
+      student: studentId,
       ...req.tenantQuery
     };
     
@@ -103,39 +141,43 @@ exports.getAttendanceByCourse = async (req, res) => {
 
 exports.markAttendance = async (req, res) => {
   try {
-    console.log('=== MARK ATTENDANCE ===');
-    console.log('Body:', req.body);
-    console.log('Headers:', req.headers);
-    console.log('Tenant query:', req.tenantQuery);
-    console.log('User:', req.user);
+    if (req.user.role?.code === 'STUDENT' || req.user.role?.code === 'PARENT') {
+      return res.status(403).json({ message: 'You are not authorized to mark attendance' });
+    }
     
     const { attendeeType, student, teacher, course, date, status, remarks, classGrade } = req.body;
     
     const tenantQuery = req.tenantQuery || {};
-    console.log('Tenant query after destructuring:', tenantQuery);
     
-    // If no tenantQuery.school, try to get from body
+    if (req.user.role?.code === 'TEACHER' && attendeeType === 'student') {
+      const Teacher = require('../models/Teacher');
+      const teacherRecord = await Teacher.findOne({ email: req.user.email, school: tenantQuery?.school });
+      if (teacherRecord && teacherRecord.courses && teacherRecord.courses.length > 0) {
+        if (course && !teacherRecord.courses.includes(course)) {
+          return res.status(403).json({ message: 'You can only mark attendance for your assigned courses' });
+        }
+        if (!course) {
+          return res.status(400).json({ message: 'Course is required for marking attendance' });
+        }
+      }
+    }
+    
     let schoolId = tenantQuery.school;
     if (!schoolId) {
       schoolId = req.body.school;
     }
-    console.log('School ID from tenant/body:', schoolId);
     
-    // If still no school, try to get from teacher record
     if (!schoolId && attendeeType === 'teacher' && teacher) {
       const teacherData = await Teacher.findById(teacher);
       if (teacherData) {
         schoolId = teacherData.school;
-        console.log('School ID from teacher:', schoolId);
       }
     }
     
-    // Try to get school from student record
     if (!schoolId && attendeeType === 'student' && student) {
       const studentData = await Student.findById(student);
       if (studentData) {
         schoolId = studentData.school;
-        console.log('School ID from student:', schoolId);
       }
     }
     
@@ -148,43 +190,32 @@ exports.markAttendance = async (req, res) => {
       school: schoolId
     };
     
-    console.log('Attendee type:', attendeeType);
-    console.log('Teacher ID:', teacher);
-    
     if (attendeeType === 'teacher' && teacher) {
-      console.log('Processing as teacher attendance');
       existingQuery.teacher = teacher;
       existingQuery.attendeeType = 'teacher';
       
       const teacherData = await Teacher.findById(teacher);
       if (!teacherData) {
-        console.log('Teacher not found in DB');
         return res.status(400).json({ message: 'Teacher not found' });
       }
-      console.log('Teacher found:', teacherData._id);
     } else if (attendeeType === 'student' && student) {
-      console.log('Processing as student attendance');
       existingQuery.student = student;
       existingQuery.attendeeType = 'student';
       
       const studentData = await Student.findById(student);
       if (!studentData) {
-        console.log('Student not found in DB');
         return res.status(400).json({ message: 'Student not found' });
       }
     } else {
-      console.log('Invalid attendee type or missing ID');
       return res.status(400).json({ message: 'Invalid attendee type or missing ID', attendeeType, student, teacher });
     }
     
-    // Check if attendance already exists
     const existing = await Attendance.findOne(existingQuery);
     if (existing) {
       existing.status = status;
       existing.remarks = remarks;
       existing.markedBy = req.user._id;
       await existing.save();
-      console.log('Updated existing attendance:', existing._id);
       return res.json(existing);
     }
     
@@ -201,16 +232,9 @@ exports.markAttendance = async (req, res) => {
       markedBy: req.user._id
     });
     
-    try {
-      await attendance.save();
-      console.log('Attendance created successfully:', attendance._id);
-      res.status(201).json(attendance);
-    } catch (saveError) {
-      console.error('Save error:', saveError);
-      res.status(400).json({ message: saveError.message });
-    }
+    await attendance.save();
+    res.status(201).json(attendance);
   } catch (error) {
-    console.error('Mark attendance error:', error);
     res.status(400).json({ message: error.message });
   }
 };

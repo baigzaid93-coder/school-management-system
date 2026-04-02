@@ -3,10 +3,11 @@ const mongoose = require('mongoose');
 const markSchema = new mongoose.Schema({
   exam: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', required: true },
   student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
-  subject: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject', required: true },
-  academicYear: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicYear', required: true },
+  subject: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
+  academicYear: String,
+  academicYearId: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicYear' },
   term: { type: mongoose.Schema.Types.ObjectId, ref: 'Term' },
-  classGrade: { type: mongoose.Schema.Types.ObjectId, ref: 'ClassGrade', required: true },
+  classGrade: { type: mongoose.Schema.Types.ObjectId, ref: 'ClassGrade' },
   marksObtained: { type: Number, required: true },
   maxMarks: { type: Number, required: true },
   weightage: { type: Number, default: 100 },
@@ -18,7 +19,8 @@ const markSchema = new mongoose.Schema({
   checkedAt: Date,
   approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
   approvedAt: Date,
-  publishDate: Date
+  publishDate: Date,
+  school: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true }
 }, { timestamps: true });
 
 markSchema.index({ exam: 1, student: 1, subject: 1 }, { unique: true });

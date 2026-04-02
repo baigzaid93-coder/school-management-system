@@ -29,7 +29,7 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const staff = await Staff.findById(req.params.id)
+    const staff = await Staff.findOne({ _id: req.params.id, ...req.tenantQuery })
       .populate('department', 'name')
       .populate('role', 'name');
     if (!staff) return res.status(404).json({ message: 'Staff not found' });
@@ -60,7 +60,11 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const staff = await Staff.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const staff = await Staff.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!staff) return res.status(404).json({ message: 'Staff not found' });
     res.json(staff);
   } catch (error) {
@@ -70,7 +74,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const staff = await Staff.findByIdAndDelete(req.params.id);
+    const staff = await Staff.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!staff) return res.status(404).json({ message: 'Staff not found' });
     res.json({ message: 'Staff deleted successfully' });
   } catch (error) {

@@ -17,44 +17,39 @@ function ParentPortal() {
     try {
       setLoading(true);
       
-      const parentsRes = await api.get('/parents');
-      const parentsData = parentsRes.data;
+      const parentRes = await api.get('/parents/my-profile');
+      const parentData = parentRes.data;
       
-      const token = localStorage.getItem('accessToken');
-      const parentWithChildren = Array.isArray(parentsData) 
-        ? parentsData.find(p => p.userId?.username === JSON.parse(atob(token.split('.')[1]))?.username)
-        : null;
+      setParent(parentData);
       
-      if (parentWithChildren) {
-        setParent(parentWithChildren);
-        
-        const childrenWithDetails = await Promise.all(
-          (parentWithChildren.students || []).map(async (studentId) => {
-            const studentRes = await api.get(`/students/${typeof studentId === 'object' ? studentId._id : studentId}`);
-            const student = studentRes.data;
-            
-            const attendanceRes = await api.get(`/attendance/student/${student._id}`);
-            const attendance = attendanceRes.data;
-            
-            const gradesRes = await api.get(`/grades/student/${student._id}`);
-            const grades = gradesRes.data;
-            
-            const feesRes = await api.get(`/fees/student/${student._id}`);
-            const fees = feesRes.data;
-            
-            return {
-              ...student,
-              attendance: Array.isArray(attendance) ? attendance : (attendance.data || []),
-              grades: Array.isArray(grades) ? grades : (grades.data || []),
-              fees: Array.isArray(fees) ? fees : (fees.data || [])
-            };
-          })
-        );
-        
-        setChildren(childrenWithDetails);
-        if (childrenWithDetails.length > 0) {
-          setSelectedChild(childrenWithDetails[0]);
-        }
+      const childrenWithDetails = await Promise.all(
+        (parentData.students || []).map(async (student) => {
+          const studentId = typeof student === 'object' ? student._id : student;
+          
+          const studentRes = await api.get(`/students/${studentId}`);
+          const studentData = studentRes.data;
+          
+          const attendanceRes = await api.get(`/attendance/student/${studentId}`);
+          const attendance = attendanceRes.data;
+          
+          const gradesRes = await api.get(`/grades/student/${studentId}`);
+          const grades = gradesRes.data;
+          
+          const feesRes = await api.get(`/fees/student/${studentId}`);
+          const fees = feesRes.data;
+          
+          return {
+            ...studentData,
+            attendance: Array.isArray(attendance) ? attendance : (attendance.data || []),
+            grades: Array.isArray(grades) ? grades : (grades.data || []),
+            fees: Array.isArray(fees) ? fees : (fees.data || [])
+          };
+        })
+      );
+      
+      setChildren(childrenWithDetails);
+      if (childrenWithDetails.length > 0) {
+        setSelectedChild(childrenWithDetails[0]);
       }
     } catch (err) {
       console.error('Failed to load parent data:', err);

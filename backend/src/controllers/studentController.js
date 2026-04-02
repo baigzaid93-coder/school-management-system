@@ -8,6 +8,15 @@ const { generateStudentId } = require('../utils/idGenerator');
 
 exports.getAllStudents = async (req, res) => {
   try {
+    if (req.user.role?.code === 'STUDENT') {
+      const student = await Student.findOne({ userId: req.user.id, ...req.tenantQuery })
+        .populate('class', 'name code')
+        .populate('classGrade', 'name')
+        .populate('section', 'name');
+      if (!student) return res.status(404).json({ message: 'Student profile not found' });
+      return res.json({ students: [student], pagination: { page: 1, limit: 1, total: 1, pages: 1 } });
+    }
+    
     const { page = 1, limit = 20, search, status, all } = req.query;
     const query = { ...req.tenantQuery };
     
@@ -59,6 +68,21 @@ exports.getAllStudents = async (req, res) => {
         pages: Math.ceil(total / limit)
       }
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getMyProfile = async (req, res) => {
+  try {
+    const student = await Student.findOne({ userId: req.user.id })
+      .populate('class', 'name code')
+      .populate('classGrade', 'name')
+      .populate('section', 'name');
+    
+    if (!student) return res.status(404).json({ message: 'Student profile not found' });
+    
+    res.json(student);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

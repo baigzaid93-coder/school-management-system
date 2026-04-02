@@ -187,7 +187,7 @@ function Expenses() {
   const downloadVoucher = (expense) => {
     const token = localStorage.getItem('accessToken');
     const schoolId = localStorage.getItem('currentSchoolId');
-    const url = `http://localhost:5000/api/vouchers/${expense._id}/pdf`;
+    const url = `/api/vouchers/${expense._id}/pdf`;
     
     fetch(url, {
       headers: {

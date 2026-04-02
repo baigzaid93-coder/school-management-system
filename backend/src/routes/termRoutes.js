@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, tenantFilter } = require('../middleware/auth');
+const { setSchoolFromTenant } = require('../middleware/tenant');
 const controller = require('../controllers/termController');
 
 router.use(authenticate, tenantFilter());
@@ -8,7 +9,7 @@ router.use(authenticate, tenantFilter());
 router.get('/', controller.getAll);
 router.get('/current', controller.getCurrent);
 router.get('/year/:yearId', controller.getByYear);
-router.post('/', controller.create);
+router.post('/', setSchoolFromTenant, controller.create);
 router.put('/:id', controller.update);
 router.delete('/:id', controller.delete);
 

@@ -12,7 +12,7 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const branch = await Branch.findById(req.params.id).populate('manager', 'firstName lastName email');
+    const branch = await Branch.findOne({ _id: req.params.id, ...req.tenantQuery }).populate('manager', 'firstName lastName email');
     if (!branch) return res.status(404).json({ message: 'Branch not found' });
     res.json(branch);
   } catch (error) {
@@ -35,7 +35,7 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const branch = await Branch.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const branch = await Branch.findOneAndUpdate({ _id: req.params.id, ...req.tenantQuery }, req.body, { new: true });
     if (!branch) return res.status(404).json({ message: 'Branch not found' });
     res.json(branch);
   } catch (error) {
@@ -45,7 +45,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const branch = await Branch.findByIdAndDelete(req.params.id);
+    const branch = await Branch.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!branch) return res.status(404).json({ message: 'Branch not found' });
     res.json({ message: 'Branch deleted successfully' });
   } catch (error) {

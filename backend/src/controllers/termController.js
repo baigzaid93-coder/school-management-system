@@ -45,9 +45,13 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     if (req.body.isCurrent) {
-      await Term.updateMany({}, { isCurrent: false });
+      await Term.updateMany({ ...req.tenantQuery }, { isCurrent: false });
     }
-    const term = await Term.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const term = await Term.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!term) return res.status(404).json({ message: 'Term not found' });
     res.json(term);
   } catch (error) {
@@ -57,7 +61,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const term = await Term.findByIdAndDelete(req.params.id);
+    const term = await Term.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!term) return res.status(404).json({ message: 'Term not found' });
     res.json({ message: 'Term deleted successfully' });
   } catch (error) {

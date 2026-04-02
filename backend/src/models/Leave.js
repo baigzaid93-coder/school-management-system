@@ -20,10 +20,12 @@ const leaveSchema = new mongoose.Schema({
   approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   approvedOn: Date,
   rejectionReason: String,
+  approvalRequestId: { type: mongoose.Schema.Types.ObjectId, ref: 'ApprovalRequest' },
   documents: [{
     name: String,
     url: String
-  }]
+  }],
+  school: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true }
 }, { timestamps: true });
 
 leaveSchema.index({ staff: 1, startDate: -1 });

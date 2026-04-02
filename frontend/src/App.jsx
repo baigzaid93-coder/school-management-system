@@ -37,6 +37,13 @@ import SaaSUsers from './pages/SaaSUsers';
 import SaaSRevenue from './pages/SaaSRevenue';
 import LetterHeadSettings from './pages/LetterHeadSettings';
 import BulkUpload from './pages/BulkUpload';
+import CustomReports from './pages/CustomReports';
+import Invoices from './pages/Invoices';
+import SaaSBilling from './pages/SaaSBilling';
+import SubscriptionPlans from './pages/SubscriptionPlans';
+import Approvals from './pages/Approvals';
+import ApprovalSettings from './pages/ApprovalSettings';
+import Discipline from './pages/Discipline';
 
 function App() {
   return (
@@ -56,39 +63,34 @@ function App() {
             
             {/* Student Management */}
             <Route path="inquiries" element={
-              <ProtectedRoute allowedPermissions={['admission:view', 'admission:read', '*']}>
+              <ProtectedRoute allowedPermissions={['admission:view', 'admission:read', '*']} blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <Admissions />
               </ProtectedRoute>
             } />
             <Route path="students/admit" element={
-              <ProtectedRoute allowedPermissions={['admission:write', '*']}>
+              <ProtectedRoute allowedPermissions={['admission:write', 'student:create', '*']} blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <StudentAdmission />
               </ProtectedRoute>
             } />
             <Route path="admissions" element={
-              <ProtectedRoute allowedPermissions={['admission:view', 'admission:approve', '*']}>
+              <ProtectedRoute allowedPermissions={['admission:view', 'admission:approve', '*']} blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <AdmissionApproval />
               </ProtectedRoute>
             } />
-            <Route path="students/admit" element={
-              <ProtectedRoute allowedPermissions={['student:create', 'admission:write', '*']}>
-                <StudentAdmission />
-              </ProtectedRoute>
-            } />
             <Route path="students" element={
-              <ProtectedRoute allowedPermissions="student:view">
+              <ProtectedRoute allowedPermissions="student:view" blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <Students />
               </ProtectedRoute>
             } />
             
             {/* Academic */}
             <Route path="classes" element={
-              <ProtectedRoute allowedPermissions="course:view">
+              <ProtectedRoute allowedPermissions="course:view" blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <ClassGrades />
               </ProtectedRoute>
             } />
             <Route path="subjects" element={
-              <ProtectedRoute allowedPermissions="course:view">
+              <ProtectedRoute allowedPermissions="course:view" blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <Subjects />
               </ProtectedRoute>
             } />
@@ -105,27 +107,27 @@ function App() {
             
             {/* Staff */}
             <Route path="teachers" element={
-              <ProtectedRoute allowedPermissions="teacher:view">
+              <ProtectedRoute allowedPermissions="teacher:view" blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <Teachers />
               </ProtectedRoute>
             } />
             <Route path="staff" element={
-              <ProtectedRoute allowedPermissions="user:view">
+              <ProtectedRoute allowedPermissions="user:view" blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <Staff />
               </ProtectedRoute>
             } />
             <Route path="users" element={
-              <ProtectedRoute allowedPermissions="user:view">
+              <ProtectedRoute allowedPermissions="user:view" blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <Users />
               </ProtectedRoute>
             } />
             <Route path="teacher-portal" element={
-              <ProtectedRoute allowedPermissions={['teacher:view', '*']}>
+              <ProtectedRoute allowedRoles={['TEACHER']}>
                 <TeacherDashboard />
               </ProtectedRoute>
             } />
             <Route path="parent-portal" element={
-              <ProtectedRoute allowedPermissions={['parent:view', '*']}>
+              <ProtectedRoute allowedRoles={['PARENT']}>
                 <ParentPortal />
               </ProtectedRoute>
             } />
@@ -159,12 +161,12 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="expenses" element={
-              <ProtectedRoute allowedPermissions="fee:view">
+              <ProtectedRoute allowedPermissions="fee:view" blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <Expenses />
               </ProtectedRoute>
             } />
             <Route path="bulk-upload" element={
-              <ProtectedRoute allowedPermissions="*">
+              <ProtectedRoute allowedPermissions="*" blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <BulkUpload />
               </ProtectedRoute>
             } />
@@ -175,11 +177,26 @@ function App() {
                 <Reports />
               </ProtectedRoute>
             } />
+            <Route path="custom-reports" element={
+              <ProtectedRoute allowedPermissions="report:view" blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
+                <CustomReports />
+              </ProtectedRoute>
+            } />
             
             {/* Super Admin - School Management */}
             <Route path="schools" element={
               <ProtectedRoute allowedPermissions={['*', 'settings:edit']}>
                 <Schools />
+              </ProtectedRoute>
+            } />
+            <Route path="schools/new" element={
+              <ProtectedRoute allowedPermissions={['*', 'settings:edit']}>
+                <Schools newSchoolMode={true} />
+              </ProtectedRoute>
+            } />
+            <Route path="schools/plans" element={
+              <ProtectedRoute allowedPermissions="*">
+                <SubscriptionPlans />
               </ProtectedRoute>
             } />
             
@@ -197,6 +214,11 @@ function App() {
             <Route path="saas/revenue" element={
               <ProtectedRoute allowedPermissions={['*']}>
                 <SaaSRevenue />
+              </ProtectedRoute>
+            } />
+            <Route path="saas/billing" element={
+              <ProtectedRoute allowedPermissions={['*']}>
+                <SaaSBilling />
               </ProtectedRoute>
             } />
             <Route path="saas/cbs" element={
@@ -219,11 +241,41 @@ function App() {
                 <SaaSRevenue />
               </ProtectedRoute>
             } />
+            <Route path="saas/roles" element={
+              <ProtectedRoute allowedPermissions={['*']}>
+                <RolesManagement />
+              </ProtectedRoute>
+            } />
             
             {/* Administration */}
             <Route path="roles" element={
-              <ProtectedRoute allowedPermissions={['*', 'settings:edit', 'user:edit']}>
+              <ProtectedRoute allowedPermissions={['*', 'settings:edit', 'user:edit']} blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <RolesManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="settings" element={
+              <ProtectedRoute allowedPermissions="settings:view" blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
+                <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="approvals" element={
+              <ProtectedRoute allowedPermissions={['*', 'settings:edit']} blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
+                <Approvals />
+              </ProtectedRoute>
+            } />
+            <Route path="approval-settings" element={
+              <ProtectedRoute allowedPermissions={['*', 'settings:edit']} blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
+                <ApprovalSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="discipline" element={
+              <ProtectedRoute allowedPermissions={['*', 'settings:view']} blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
+                <Discipline />
+              </ProtectedRoute>
+            } />
+            <Route path="letter-head" element={
+              <ProtectedRoute allowedPermissions="settings:view" blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
+                <LetterHeadSettings />
               </ProtectedRoute>
             } />
             <Route path="settings" element={
@@ -241,7 +293,7 @@ function App() {
             <Route path="profile" element={<Profile />} />
             <Route path="change-password" element={<ChangePassword />} />
             <Route path="audit-trail" element={
-              <ProtectedRoute allowedPermissions={['*', 'settings:view']}>
+              <ProtectedRoute allowedPermissions={['*', 'settings:view']} blockedRoles={['TEACHER', 'PARENT', 'STUDENT']}>
                 <AuditTrail />
               </ProtectedRoute>
             } />

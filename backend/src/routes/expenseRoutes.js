@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, tenantFilter } = require('../middleware/auth');
+const { setSchoolFromTenant } = require('../middleware/tenant');
 const expenseController = require('../controllers/expenseController');
 
 router.use(authenticate, tenantFilter());
@@ -12,8 +13,8 @@ router.get('/summary', expenseController.getExpenseSummary);
 router.get('/teacher/:teacherId', expenseController.getExpensesByTeacher);
 router.get('/teacher/:teacherId/summary', expenseController.getExpensesByTeacherSummary);
 router.get('/staff/:staffId', expenseController.getExpensesByStaff);
-router.post('/', expenseController.createExpense);
-router.post('/bulk', expenseController.createBulkExpenses);
+router.post('/', setSchoolFromTenant, expenseController.createExpense);
+router.post('/bulk', setSchoolFromTenant, expenseController.createBulkExpenses);
 router.put('/:id', expenseController.updateExpense);
 router.delete('/:id', expenseController.deleteExpense);
 

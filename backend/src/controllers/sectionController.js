@@ -39,7 +39,11 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const section = await Section.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const section = await Section.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!section) return res.status(404).json({ message: 'Section not found' });
     res.json(section);
   } catch (error) {
@@ -49,7 +53,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const section = await Section.findByIdAndDelete(req.params.id);
+    const section = await Section.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!section) return res.status(404).json({ message: 'Section not found' });
     res.json({ message: 'Section deleted successfully' });
   } catch (error) {

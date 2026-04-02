@@ -24,7 +24,11 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const feeHead = await FeeHead.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const feeHead = await FeeHead.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      req.body,
+      { new: true }
+    );
     if (!feeHead) return res.status(404).json({ message: 'Fee head not found' });
     res.json(feeHead);
   } catch (error) {
@@ -34,7 +38,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const feeHead = await FeeHead.findByIdAndDelete(req.params.id);
+    const feeHead = await FeeHead.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!feeHead) return res.status(404).json({ message: 'Fee head not found' });
     res.json({ message: 'Fee head deleted successfully' });
   } catch (error) {

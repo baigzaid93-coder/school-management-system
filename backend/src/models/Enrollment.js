@@ -16,7 +16,8 @@ const enrollmentSchema = new mongoose.Schema({
   previousClass: { type: mongoose.Schema.Types.ObjectId, ref: 'ClassGrade' },
   transferFrom: String,
   transferTo: String,
-  remarks: String
+  remarks: String,
+  school: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true }
 }, { timestamps: true });
 
 enrollmentSchema.index({ student: 1, academicYear: 1 }, { unique: true });

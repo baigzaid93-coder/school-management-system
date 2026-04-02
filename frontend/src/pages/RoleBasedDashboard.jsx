@@ -22,6 +22,31 @@ function RoleBasedDashboard() {
   const primaryColor = currentSchool?.branding?.primaryColor || '#4F46E5';
   const secondaryColor = currentSchool?.branding?.secondaryColor || '#7C3AED';
 
+  const getUserRole = () => {
+    const roleCode = user?.role?.code;
+    if (roleCode === 'TEACHER') return 'teacher';
+    if (roleCode === 'PARENT') return 'parent';
+    if (roleCode === 'STUDENT') return 'student';
+    return null;
+  };
+
+  const userRole = getUserRole();
+
+  useEffect(() => {
+    if (userRole === 'teacher') {
+      navigate('/teacher-portal');
+      return;
+    }
+    if (userRole === 'parent') {
+      navigate('/parent-portal');
+      return;
+    }
+    if (userRole === 'student') {
+      navigate('/profile');
+      return;
+    }
+  }, [userRole, navigate]);
+
   useEffect(() => {
     if (showSaaSDashboard) {
       loadSchools();

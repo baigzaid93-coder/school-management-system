@@ -27,7 +27,8 @@ const announcementSchema = new mongoose.Schema({
   publishedAt: { type: Date, default: Date.now },
   isActive: { type: Boolean, default: true },
   viewCount: { type: Number, default: 0 },
-  views: [{ user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, viewedAt: Date }]
+  views: [{ user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, viewedAt: Date }],
+  school: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Announcement', announcementSchema);

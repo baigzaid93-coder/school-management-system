@@ -23,12 +23,26 @@ const feeSchema = new mongoose.Schema({
     feeAmount: Number
   }],
   amount: { type: Number, required: true },
+  concessionAmount: { type: Number, default: 0 },
   paidAmount: { type: Number, default: 0 },
+  concessionApproval: {
+    required: { type: Boolean, default: false },
+    requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    requestedAt: Date,
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    approvedAt: Date,
+    status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    concessionType: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
+    concessionValue: Number,
+    reason: String,
+    rejectionReason: String,
+    approvalRequestId: { type: mongoose.Schema.Types.ObjectId, ref: 'ApprovalRequest' }
+  },
   dueDate: { type: Date, required: true },
   paidDate: Date,
   status: { 
     type: String, 
-    enum: ['Pending', 'Partial', 'Paid', 'Overdue'],
+    enum: ['Pending', 'Partial', 'Paid', 'Overdue', 'Concession Pending'],
     default: 'Pending' 
   },
   academicYear: String,

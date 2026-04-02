@@ -2,12 +2,13 @@ const express = require('express');
 const router = express.Router();
 const classGradeController = require('../controllers/classGradeController');
 const { authenticate, authorize, tenantFilter } = require('../middleware/auth');
+const { setSchoolFromTenant } = require('../middleware/tenant');
 
 router.use(authenticate, tenantFilter());
 
 router.get('/', classGradeController.getAll);
 router.get('/:id', classGradeController.getById);
-router.post('/', authenticate, authorize('course:create'), classGradeController.create);
+router.post('/', authenticate, authorize('course:create'), setSchoolFromTenant, classGradeController.create);
 router.put('/:id', authenticate, authorize('course:edit'), classGradeController.update);
 router.delete('/:id', authenticate, authorize('course:delete'), classGradeController.delete);
 

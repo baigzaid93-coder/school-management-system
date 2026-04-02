@@ -1,11 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, Mail, Phone, MapPin, Save, Camera, Shield } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { User, Mail, Phone, MapPin, Save, Camera, Shield, BookOpen, Calendar, DollarSign, GraduationCap } from 'lucide-react';
+import api from '../../services/api';
 
 function Profile() {
-  const { user, checkAuth } = useAuth();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [profileData, setProfileData] = useState(null);
+  const [studentData, setStudentData] = useState(null);
+  const [attendance, setAttendance] = useState([]);
+  const [grades, setGrades] = useState([]);
+  const [fees, setFees] = useState([]);
+  const [activeTab, setActiveTab] = useState('profile');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -18,6 +27,40 @@ function Profile() {
       zipCode: ''
     }
   });
+  
+  const userRole = user?.role?.code;
+  const isStudent = userRole === 'STUDENT';
+  const isParent = userRole === 'PARENT';
+  const isTeacher = userRole === 'TEACHER';
+
+  useEffect(() => {
+    if (isStudent) {
+      loadStudentData();
+    } else if (isParent) {
+      navigate('/parent-portal');
+    } else if (isTeacher) {
+      navigate('/teacher-portal');
+    }
+  }, [userRole]);
+
+  const loadStudentData = async () => {
+    try {
+      const studentRes = await api.get('/students/my-profile');
+      setStudentData(studentRes.data);
+      setProfileData(studentRes.data);
+      
+      const attRes = await api.get('/attendance?attendeeType=student');
+      setAttendance(attRes.data || []);
+      
+      const gradeRes = await api.get('/grades');
+      setGrades(gradeRes.data || []);
+      
+      const feeRes = await api.get('/fees');
+      setFees(feeRes.data || []);
+    } catch (err) {
+      console.error('Error loading student data:', err);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -55,7 +98,6 @@ function Profile() {
     setMessage({ type: '', text: '' });
 
     try {
-      const api = (await import('../../services/api')).default;
       await api.put('/auth/users/' + user._id, {
         profile: {
           firstName: formData.firstName,
@@ -65,7 +107,6 @@ function Profile() {
         }
       });
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
-      checkAuth();
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to update profile' });
     } finally {

@@ -7,6 +7,7 @@ const Parent = require('../models/Parent');
 const ClassGrade = require('../models/ClassGrade');
 const Subject = require('../models/Subject');
 const bcrypt = require('bcryptjs');
+const { initializeDefaultWorkflows } = require('./approvalController');
 
 exports.getAll = async (req, res) => {
   try {
@@ -80,6 +81,8 @@ exports.create = async (req, res) => {
       school.adminUser = adminUser._id;
       await school.save();
     }
+
+    await initializeDefaultWorkflows(school._id);
 
     res.status(201).json(school);
   } catch (error) {

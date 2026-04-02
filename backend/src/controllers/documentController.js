@@ -49,7 +49,7 @@ exports.verify = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const document = await Document.findByIdAndDelete(req.params.id);
+    const document = await Document.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     if (!document) return res.status(404).json({ message: 'Document not found' });
     res.json({ message: 'Document deleted successfully' });
   } catch (error) {

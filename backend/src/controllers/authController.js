@@ -157,7 +157,11 @@ exports.login = async (req, res) => {
     
     res.json({
       message: 'Login successful',
-      user,
+      user: {
+        ...user.toObject(),
+        isSuperAdmin: user.isSuperAdmin,
+        isSchoolAdmin: user.isSchoolAdmin
+      },
       accessToken,
       refreshToken,
       role: user.role
@@ -406,27 +410,36 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    
     const user = await User.findOne({ email });
     
+    // Always return success to prevent email enumeration
     if (!user) {
-      return res.status(404).json({ message: 'User not found with this email' });
+      return res.json({ 
+        message: 'If an account exists with this email, reset instructions have been sent'
+      });
     }
     
     const resetToken = jwt.sign(
       { id: user._id, type: 'reset' },
       JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '15m' }
     );
     
     user.resetToken = resetToken;
-    user.resetTokenExp = new Date(Date.now() + 60 * 60 * 1000);
+    user.resetTokenExp = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
+    
+    // In production, send email here. For now, just log
+    console.log(`Password reset for ${email}: ${resetToken}`);
     
     await logAudit(user._id, 'PASSWORD_RESET_REQUEST', 'Auth', 'Password reset requested', 'User', user._id, 'SUCCESS');
     
     res.json({ 
-      message: 'Password reset instructions sent to your email',
-      resetToken: resetToken
+      message: 'If an account exists with this email, reset instructions have been sent'
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -436,6 +449,24 @@ exports.forgotPassword = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
+    
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Token and new password are required' });
+    }
+    
+    // Password strength validation
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      return res.status(400).json({ message: 'Password must contain at least one uppercase letter' });
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      return res.status(400).json({ message: 'Password must contain at least one lowercase letter' });
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      return res.status(400).json({ message: 'Password must contain at least one number' });
+    }
     
     const decoded = jwt.verify(token, JWT_SECRET);
     
@@ -453,16 +484,30 @@ exports.resetPassword = async (req, res) => {
       return res.status(401).json({ message: 'Reset token expired or invalid' });
     }
     
+    // Check if new password is same as current
+    const isSamePassword = await user.comparePassword(newPassword);
+    if (isSamePassword) {
+      return res.status(400).json({ message: 'New password cannot be the same as current password' });
+    }
+    
     user.password = newPassword;
     user.resetToken = undefined;
     user.resetTokenExp = undefined;
     user.mustChangePassword = false;
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = undefined;
     await user.save();
     
     await logAudit(user._id, 'PASSWORD_RESET', 'Auth', 'Password reset completed', 'User', user._id, 'SUCCESS');
     
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Invalid reset token' });
+    }
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Reset token has expired' });
+    }
     res.status(500).json({ message: error.message });
   }
 };

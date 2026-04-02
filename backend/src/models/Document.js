@@ -20,7 +20,8 @@ const documentSchema = new mongoose.Schema({
   verifiedAt: Date,
   status: { type: String, enum: ['Pending', 'Verified', 'Rejected'], default: 'Pending' },
   expiryDate: Date,
-  notes: String
+  notes: String,
+  school: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true }
 }, { timestamps: true });
 
 documentSchema.index({ student: 1, type: 1 });

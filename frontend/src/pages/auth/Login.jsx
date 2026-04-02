@@ -15,8 +15,12 @@ function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
-      navigate('/');
+      const user = await login(email, password);
+      if (user?.isSuperAdmin) {
+        navigate('/saas/dashboard');
+      } else {
+        navigate('/');
+      }
     } catch (error) {
       console.error('Login failed:', error);
     } finally {

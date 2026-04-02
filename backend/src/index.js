@@ -2,10 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
+const path = require('path');
 
 dotenv.config();
 
 const app = express();
+const isProduction = process.env.NODE_ENV === 'production';
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -16,7 +18,7 @@ const corsOptions = {
       process.env.RENDER_EXTERNAL_URL
     ].filter(Boolean);
     
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || isProduction) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -83,6 +85,7 @@ app.use('/api/marks', require('./routes/markRoutes'));
 app.use('/api/courses', require('./routes/courseRoutes'));
 app.use('/api/grades', require('./routes/gradeRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
+app.use('/api/report-templates', require('./routes/reportTemplateRoutes'));
 app.use('/api/fees', require('./routes/feeRoutes'));
 app.use('/api/expenses', require('./routes/expenseRoutes'));
 app.use('/api/vouchers', require('./routes/voucherRoutes'));
@@ -91,65 +94,34 @@ app.use('/api/timetable', require('./routes/timetableRoutes'));
 app.use('/api/announcements', require('./routes/announcementRoutes'));
 app.use('/api/documents', require('./routes/documentRoutes'));
 app.use('/api/leaves', require('./routes/leaveRoutes'));
+app.use('/api/approvals', require('./routes/approvalRoutes'));
+app.use('/api/discipline', require('./routes/disciplineRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/admissions', require('./routes/admissionRoutes'));
 app.use('/api/bulk-upload', require('./routes/bulkUploadRoutes'));
+app.use('/api/invoices', require('./routes/invoiceRoutes'));
+app.use('/api/subscriptions', require('./routes/subscriptionRoutes'));
 
-app.get('/', (req, res) => {
-  res.json({ message: 'School Management System API is running' });
-});
+// Serve static frontend files in production (before API routes)
+if (isProduction) {
+  const frontendPath = path.join(__dirname, '../../frontend/dist');
+  app.use(express.static(frontendPath));
+}
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'school-management-secret-key-2024';
-app.get('/api/debug/verify', (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    res.json({ message: 'Token valid', userId: decoded.id });
-  } catch (e) {
-    res.status(401).json({ message: 'Invalid token', error: e.message });
-  }
-});
-
-app.get('/api/debug/login-token', (req, res) => {
-  const jwt = require('jsonwebtoken');
-  const User = require('./models/User');
-  const JWT_SECRET = process.env.JWT_SECRET || 'school-management-secret-key-2024';
-  User.findOne({ email: 'superadmin@edcatore.com' }).then(user => {
-    if (user) {
-      const accessToken = jwt.sign(
-        { id: user._id, email: user.email, role: user.role, username: user.username },
-        JWT_SECRET,
-        { expiresIn: '24h' }
-      );
-      res.json({ accessToken: accessToken });
-    } else {
-      res.status(404).json({ message: 'User not found' });
-    }
+// Catch-all for frontend in production
+if (isProduction) {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../frontend/dist', 'index.html'));
   });
-});
-
-const jwt = require('jsonwebtoken');
-app.get('/api/debug/verify', (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    res.json({ message: 'Token valid', userId: decoded.id });
-  } catch (e) {
-    res.status(401).json({ message: 'Invalid token', error: e.message });
-  }
-});
+} else {
+  app.get('/', (req, res) => {
+    res.json({ message: 'School Management System API is running' });
+  });
+}
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

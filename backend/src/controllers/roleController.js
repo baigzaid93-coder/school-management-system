@@ -207,7 +207,7 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const role = await Role.findById(req.params.id);
+    const role = await Role.findOne({ _id: req.params.id, ...req.tenantQuery });
     if (!role) return res.status(404).json({ message: 'Role not found' });
     res.json(role);
   } catch (error) {
@@ -217,7 +217,8 @@ exports.getById = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const role = new Role(req.body);
+    const roleData = { ...req.body, school: req.tenantQuery?.school || req.user?.school };
+    const role = new Role(roleData);
     await role.save();
     res.status(201).json(role);
   } catch (error) {
@@ -227,7 +228,7 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const role = await Role.findById(req.params.id);
+    const role = await Role.findOne({ _id: req.params.id, ...req.tenantQuery });
     if (!role) return res.status(404).json({ message: 'Role not found' });
     if (role.isSystem) {
       return res.status(400).json({ message: 'Cannot modify system role' });
@@ -242,7 +243,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const role = await Role.findById(req.params.id);
+    const role = await Role.findOne({ _id: req.params.id, ...req.tenantQuery });
     if (!role) return res.status(404).json({ message: 'Role not found' });
     if (role.isSystem) {
       return res.status(400).json({ message: 'Cannot delete system role' });
