@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Eye, EyeOff, Save, CheckCircle, XCircle } from 'lucide-react';
+import api from '../../services/api';
 
 function ChangePassword() {
   const [formData, setFormData] = useState({
@@ -40,7 +41,6 @@ function ChangePassword() {
     setMessage({ type: '', text: '' });
 
     try {
-      const api = (await import('../../services/api')).default;
       await api.post('/auth/change-password', {
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword
