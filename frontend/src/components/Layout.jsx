@@ -478,53 +478,35 @@ function Layout() {
     }));
   };
 
-  const filteredNavItems = schoolNavSections.map(section => ({
-    ...section,
-    items: section.items.filter(item => {
-      if (item.showForRoles) {
-        return item.showForRoles.includes(user?.role?.code);
-      }
-      if (item.permission) {
-        // For admin users without proper permissions, show all items temporarily
-        if (!user?.role?.permissions || user.role.permissions.length === 0) {
+  // Compute navigation sections with proper null safety - MUST come after all dependencies
+  let navigationSections = [];
+  if (user) {
+    const userRole = user?.role?.code;
+    if (isSaaSMode) {
+      navigationSections = saasNavSections;
+    } else if (userRole === 'TEACHER') {
+      navigationSections = teacherNavSections;
+    } else if (userRole === 'PARENT') {
+      navigationSections = parentNavSections;
+    } else if (userRole === 'STUDENT') {
+      navigationSections = studentNavSections;
+    } else {
+      // Admin - filter by permissions
+      navigationSections = schoolNavSections.map(section => ({
+        ...section,
+        items: section.items.filter(item => {
+          if (item.showForRoles) return item.showForRoles.includes(user?.role?.code);
+          if (item.permission) return true; // Show all for admin without proper permissions
           return true;
-        }
-        return user?.role?.permissions?.includes('*') || hasPermission(item.permission);
+        })
+      })).filter(section => section.items.length > 0);
+      
+      // Ensure Dashboard is always visible for admin
+      if (navigationSections.length === 0) {
+        navigationSections = [{ title: 'Overview', items: [{ path: '/', label: 'Dashboard', icon: LayoutDashboard }] }];
       }
-      return true;
-    })
-  })).filter(section => section.items.length > 0);
-
-  const getUserRole = () => {
-    const roleCode = user?.role?.code;
-    if (roleCode === 'TEACHER') return 'teacher';
-    if (roleCode === 'PARENT') return 'parent';
-    if (roleCode === 'STUDENT') return 'student';
-    return null;
-  };
-
-  const getNavigationSections = () => {
-    if (isSaaSMode) return saasNavSections;
-    
-    const userRole = getUserRole();
-    
-    if (userRole === 'teacher') return teacherNavSections;
-    if (userRole === 'parent') return parentNavSections;
-    if (userRole === 'student') return studentNavSections;
-    
-    // For admin users, ensure at least Dashboard is always visible
-    if (filteredNavItems.length === 0 && user?.role?.code) {
-      return [{
-        title: 'Overview',
-        items: [{ path: '/', label: 'Dashboard', icon: LayoutDashboard }]
-      }];
     }
-    
-    return filteredNavItems;
-  };
-
-  // Only compute navigationSections after user is loaded
-  const navigationSections = user ? getNavigationSections() : [];
+  }
 
   const handleLogout = async () => {
     await logout();
