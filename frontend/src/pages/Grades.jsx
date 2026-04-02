@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, ClipboardCheck, AlertCircle } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 function Grades() {
+  const { user } = useAuth();
   const [grades, setGrades] = useState([]);
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -19,10 +21,30 @@ function Grades() {
     weight: 1,
     term: 'Term 1'
   });
+  const [isTeacher, setIsTeacher] = useState(false);
+  const [teacherClassId, setTeacherClassId] = useState(null);
 
-  useEffect(() => {
-    loadData();
+  useEffect(() => { 
+    checkUserRole();
   }, []);
+
+  const checkUserRole = async () => {
+    const roleCode = user?.role?.code;
+    if (roleCode === 'TEACHER') {
+      setIsTeacher(true);
+      try {
+        const teacherRes = await api.get('/teachers/my-profile');
+        const teacherData = teacherRes.data;
+        if (teacherData.assignedClass) {
+          const classId = teacherData.assignedClass._id || teacherData.assignedClass;
+          setTeacherClassId(classId);
+        }
+      } catch (err) {
+        console.error('Error loading teacher profile:', err);
+      }
+    }
+    loadData();
+  };
 
   const loadData = async () => {
     try {
@@ -35,14 +57,22 @@ function Grades() {
       const headers = { 'Authorization': `Bearer ${token}` };
       if (schoolId) headers['x-school-id'] = schoolId;
       
-      const [gradesRes, studentsRes, subjectsRes] = await Promise.all([
+      let studentsRes;
+      
+      if (isTeacher && teacherClassId) {
+        // Teachers only see their assigned class students
+        studentsRes = await api.get(`/students/all?all=true&classGrade=${teacherClassId}`, { headers });
+      } else {
+        // Admin sees all students
+        studentsRes = await api.get('/students/all?all=true', { headers });
+      }
+      
+      const [gradesRes, subjectsRes] = await Promise.all([
         api.get('/grades', { headers }),
-        api.get('/students/all?all=true', { headers }),
         api.get('/settings/subjects', { headers })
       ]);
       
       setGrades(gradesRes.data || []);
-      setStudents(studentsRes.data?.students || studentsRes.data || []);
       setCourses(subjectsRes.data || []);
     } catch (err) {
       console.error('Failed to load data:', err);
