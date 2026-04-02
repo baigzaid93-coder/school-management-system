@@ -319,7 +319,7 @@ function TeacherDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {selectedCourse.students.map(student => (
+                        {selectedCourse.students?.map(student => (
                           <tr key={student._id} className="hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm text-gray-600">{student.studentId}</td>
                             <td className="px-4 py-3 text-sm font-medium text-gray-800">
