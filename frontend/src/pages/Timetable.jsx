@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CalendarDays, Plus, Edit2, Trash2, X, Clock, BookOpen, User, MapPin, Save, Wand2 } from 'lucide-react';
 import api, { timetableService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import useToast from '../hooks/useToast';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -17,6 +18,7 @@ const DEFAULT_TIME_SLOTS = [
 
 function Timetable() {
   const toast = useToast();
+  const { user } = useAuth();
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [classGrades, setClassGrades] = useState([]);
@@ -40,14 +42,34 @@ function Timetable() {
     room: '',
     isBreak: false
   });
+  const [isTeacher, setIsTeacher] = useState(false);
+  const [teacherClassId, setTeacherClassId] = useState(null);
 
-  useEffect(() => {
-    loadInitialData();
+  useEffect(() => { 
+    checkUserRole();
   }, []);
 
+  const checkUserRole = async () => {
+    const roleCode = user?.role?.code;
+    if (roleCode === 'TEACHER') {
+      setIsTeacher(true);
+      try {
+        const teacherRes = await api.get('/teachers/my-profile');
+        const teacherData = teacherRes.data;
+        if (teacherData.assignedClass) {
+          const classId = teacherData.assignedClass._id || teacherData.assignedClass;
+          setTeacherClassId(classId);
+          setSelectedClass(classId);
+        }
+      } catch (err) {
+        console.error('Error loading teacher profile:', err);
+      }
+    }
+    loadInitialData();
+  };
+
   useEffect(() => {
-    if (selectedClass) {
-      loadSections();
+    if (!loading && selectedClass) {
       loadClassSubjects();
       loadTimetable();
     }
@@ -143,17 +165,31 @@ function Timetable() {
 
   const loadInitialData = async () => {
     try {
-      const [classesRes, subjectsRes, teachersRes] = await Promise.all([
-        api.get('/class-grades'),
+      setLoading(true);
+      
+      const [subjectsRes, teachersRes] = await Promise.all([
         api.get('/settings/subjects'),
         api.get('/teachers')
       ]);
       
-      setClassGrades(Array.isArray(classesRes.data) ? classesRes.data : []);
       setSubjects(Array.isArray(subjectsRes.data) ? subjectsRes.data : []);
       setTeachers(Array.isArray(teachersRes.data) ? teachersRes.data : []);
+      
+      // For teachers, only load their assigned class
+      // For admins, load all classes
+      if (isTeacher && teacherClassId) {
+        const classRes = await api.get(`/class-grades/${teacherClassId}`);
+        if (classRes.data) {
+          setClassGrades([classRes.data]);
+        }
+      } else {
+        const classesRes = await api.get('/class-grades');
+        setClassGrades(Array.isArray(classesRes.data) ? classesRes.data : []);
+      }
     } catch (err) {
       console.error('Failed to load initial data');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -323,7 +359,7 @@ function Timetable() {
       <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
         <div className="flex flex-wrap gap-4 items-end">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{isTeacher ? 'My Class' : 'Class'}</label>
             <select
               value={selectedClass}
               onChange={(e) => {
@@ -331,8 +367,9 @@ function Timetable() {
                 setSelectedSection('');
               }}
               className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+              disabled={isTeacher && teacherClassId}
             >
-              <option value="">Select Class</option>
+              <option value="">{isTeacher ? 'Select Class' : 'Select Class'}</option>
               {classGrades.map(cls => (
                 <option key={cls._id} value={cls._id}>
                   {cls.name} {cls.code && `(${cls.code})`}
