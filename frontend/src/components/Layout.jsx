@@ -504,6 +504,14 @@ function Layout() {
     }));
   };
 
+  const getUserRole = () => {
+    const roleCode = user?.role?.code;
+    if (roleCode === 'TEACHER') return 'teacher';
+    if (roleCode === 'PARENT') return 'parent';
+    if (roleCode === 'STUDENT') return 'student';
+    return null;
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
