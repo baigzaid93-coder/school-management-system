@@ -400,6 +400,7 @@ function Layout() {
   };
 
   useEffect(() => {
+    if (!navigationSections || navigationSections.length === 0) return;
     const allExpanded = {};
     navigationSections.forEach((_, index) => {
       allExpanded[index] = true;
@@ -522,7 +523,8 @@ function Layout() {
     return filteredNavItems;
   };
 
-  const navigationSections = getNavigationSections();
+  // Only compute navigationSections after user is loaded
+  const navigationSections = user ? getNavigationSections() : [];
 
   const handleLogout = async () => {
     await logout();
