@@ -17,8 +17,13 @@ exports.getAllStudents = async (req, res) => {
       return res.json({ students: [student], pagination: { page: 1, limit: 1, total: 1, pages: 1 } });
     }
     
-    const { page = 1, limit = 20, search, status, all } = req.query;
+    const { page = 1, limit = 20, search, status, all, classGrade } = req.query;
     const query = { ...req.tenantQuery };
+    
+    // Filter by classGrade if provided
+    if (classGrade) {
+      query.classGrade = classGrade;
+    }
     
     if (status) {
       query.status = status;
@@ -321,13 +326,18 @@ exports.getPendingAdmissions = async (req, res) => {
 
 exports.getAllAdmissions = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, search } = req.query;
+    const { page = 1, limit = 20, status, search, classGrade } = req.query;
     
     if (!req.tenantQuery) {
       return res.status(500).json({ message: 'Tenant query not set' });
     }
     
     const query = { ...req.tenantQuery };
+    
+    // Filter by classGrade if provided
+    if (classGrade) {
+      query.classGrade = classGrade;
+    }
     
     if (status) {
       query.admissionStatus = status;
