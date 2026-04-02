@@ -501,6 +501,14 @@ function Layout() {
     if (userRole === 'parent') return parentNavSections;
     if (userRole === 'student') return studentNavSections;
     
+    // For admin users, ensure at least Dashboard is always visible
+    if (filteredNavItems.length === 0 && user?.role?.code) {
+      return [{
+        title: 'Overview',
+        items: [{ path: '/', label: 'Dashboard', icon: LayoutDashboard }]
+      }];
+    }
+    
     return filteredNavItems;
   };
 
