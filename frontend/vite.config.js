@@ -19,9 +19,11 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'dist',
-      sourcemap: false,
-      minify: 'esbuild',
-      chunkSizeWarningLimit: 1000
+      sourcemap: true,
+      minify: false,
+      rollupOptions: {
+        treeshake: false
+      }
     }
   }
 })
