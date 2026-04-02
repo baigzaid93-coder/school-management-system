@@ -31,7 +31,6 @@ function RoleBasedDashboard() {
   };
 
   const userRole = getUserRole();
-  console.log('Dashboard - user:', user, 'userRole:', userRole, 'loading:', loading, 'showSaaSDashboard:', showSaaSDashboard);
 
   useEffect(() => {
     // Only redirect if userRole is a known role (teacher/parent/student)
@@ -53,8 +52,6 @@ function RoleBasedDashboard() {
 
   useEffect(() => {
     if (!user) return;
-    
-    console.log('Dashboard - loading data, showSaaSDashboard:', showSaaSDashboard, 'currentSchool:', currentSchool);
     
     if (showSaaSDashboard) {
       loadSchools();

@@ -293,10 +293,8 @@ function Layout() {
   const inSchoolMode = !!currentSchoolId;
 
   useEffect(() => {
-    console.log('Layout - user:', user, 'loading:', loading, 'initialLoadComplete:', initialLoadComplete);
     // Always set to true after a short delay if user exists, to ensure we don't get stuck
     const timer = setTimeout(() => {
-      console.log('Layout - setting initialLoadComplete to true, user:', !!user, 'loading:', loading);
       if (user && !loading) {
         setInitialLoadComplete(true);
       }
@@ -558,9 +556,8 @@ function Layout() {
 
       <aside 
         className={`sidebar ${sidebarOpen ? '' : 'collapsed'} ${mobileMenuOpen ? 'open' : ''}`}
-        style={{ backgroundColor: '#ffffff', color: '#1e293b' }}
       >
-        <div className="flex flex-col h-full" style={{ backgroundColor: '#ffffff' }}>
+        <div className="flex flex-col h-full">
           <div className="p-5 border-b border-slate-200 bg-white">
             <div className="flex items-center gap-3">
               {schoolLogo && !isSaaSMode ? (

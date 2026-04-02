@@ -93,7 +93,7 @@ body {
 
   /* Header */
   .header {
-    @apply sticky top-0 z-20 h-[72px] bg-white/80 backdrop-blur-xl border-b border-slate-200/60;
+    @apply sticky top-0 z-20 h-[72px] bg-white border-b border-slate-200;
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
   }
 
