@@ -6,9 +6,33 @@ exports.getAllGrades = async (req, res) => {
     
     if (req.user.role?.code === 'TEACHER') {
       const Teacher = require('../models/Teacher');
+      const Student = require('../models/Student');
+      
       const teacher = await Teacher.findOne({ email: req.user.email, school: req.tenantQuery.school });
-      if (teacher && teacher.courses && teacher.courses.length > 0) {
-        query.course = { $in: teacher.courses };
+      
+      if (teacher) {
+        const teacherClassId = teacher.assignedClass;
+        
+        if (teacherClassId) {
+          const classStudents = await Student.find({ 
+            classGrade: teacherClassId, 
+            school: req.tenantQuery.school,
+            status: 'Active'
+          }).select('_id');
+          const studentIds = classStudents.map(s => s._id);
+          
+          if (studentIds.length > 0) {
+            query.student = { $in: studentIds };
+          } else {
+            return res.json([]);
+          }
+        }
+        
+        if (teacher.courses && teacher.courses.length > 0) {
+          query.course = { $in: teacher.courses };
+        } else if (!teacherClassId) {
+          return res.json([]);
+        }
       } else {
         return res.json([]);
       }
@@ -33,19 +57,37 @@ exports.getAllGrades = async (req, res) => {
 exports.getTeacherGrades = async (req, res) => {
   try {
     const Teacher = require('../models/Teacher');
+    const Student = require('../models/Student');
     
     const teacher = await Teacher.findOne({ email: req.user.email, school: req.tenantQuery?.school });
     
     if (!teacher) return res.json([]);
     
-    if (!teacher.courses || teacher.courses.length === 0) {
+    const teacherClassId = teacher.assignedClass;
+    let studentIds = [];
+    
+    if (teacherClassId) {
+      const classStudents = await Student.find({ 
+        classGrade: teacherClassId, 
+        school: req.tenantQuery.school,
+        status: 'Active'
+      }).select('_id');
+      studentIds = classStudents.map(s => s._id);
+    }
+    
+    const gradeQuery = { ...req.tenantQuery };
+    
+    if (studentIds.length > 0) {
+      gradeQuery.student = { $in: studentIds };
+    }
+    
+    if (teacher.courses && teacher.courses.length > 0) {
+      gradeQuery.course = { $in: teacher.courses };
+    } else if (!teacherClassId) {
       return res.json([]);
     }
     
-    const grades = await Grade.find({ 
-      course: { $in: teacher.courses },
-      ...req.tenantQuery
-    })
+    const grades = await Grade.find(gradeQuery)
       .populate('student', 'firstName lastName studentId')
       .populate('course', 'name code');
     res.json(grades);
@@ -102,10 +144,22 @@ exports.createGrade = async (req, res) => {
   try {
     if (req.user.role?.code === 'TEACHER') {
       const Teacher = require('../models/Teacher');
+      const Student = require('../models/Student');
+      
       const teacher = await Teacher.findOne({ email: req.user.email, school: req.tenantQuery?.school });
-      if (teacher && teacher.courses && teacher.courses.length > 0) {
-        if (req.body.course && !teacher.courses.includes(req.body.course)) {
-          return res.status(403).json({ message: 'You can only add grades for your assigned courses' });
+      
+      if (teacher) {
+        if (teacher.courses && teacher.courses.length > 0) {
+          if (req.body.course && !teacher.courses.includes(req.body.course)) {
+            return res.status(403).json({ message: 'You can only add grades for your assigned courses' });
+          }
+        }
+        
+        if (teacher.assignedClass && req.body.student) {
+          const student = await Student.findById(req.body.student);
+          if (student && student.classGrade?.toString() !== teacher.assignedClass.toString()) {
+            return res.status(403).json({ message: 'You can only add grades for students in your assigned class' });
+          }
         }
       }
     }

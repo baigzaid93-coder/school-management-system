@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, X, ClipboardCheck, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, ClipboardCheck, AlertCircle, Check } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -8,10 +8,13 @@ function Grades() {
   const [grades, setGrades] = useState([]);
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingGrade, setEditingGrade] = useState(null);
+  const [selectedExam, setSelectedExam] = useState(null);
+  const [studentScores, setStudentScores] = useState({});
   const [formData, setFormData] = useState({
     student: '',
     course: '',
@@ -38,15 +41,21 @@ function Grades() {
         if (teacherData.assignedClass) {
           const classId = teacherData.assignedClass._id || teacherData.assignedClass;
           setTeacherClassId(classId);
+          // Load data after setting teacherClassId
+          loadData(classId);
+        } else {
+          loadData(null);
         }
       } catch (err) {
         console.error('Error loading teacher profile:', err);
+        loadData(null);
       }
+    } else {
+      loadData(null);
     }
-    loadData();
   };
 
-  const loadData = async () => {
+  const loadData = async (classId) => {
     try {
       setLoading(true);
       setError(null);
@@ -59,21 +68,27 @@ function Grades() {
       
       let studentsRes;
       
-      if (isTeacher && teacherClassId) {
+      // Use classId from parameter or state
+      const classGradeId = classId || teacherClassId;
+      
+      if (isTeacher && classGradeId) {
         // Teachers only see their assigned class students
-        studentsRes = await api.get(`/students/all?all=true&classGrade=${teacherClassId}`, { headers });
+        studentsRes = await api.get(`/students/all?all=true&classGrade=${classGradeId}`, { headers });
       } else {
         // Admin sees all students
         studentsRes = await api.get('/students/all?all=true', { headers });
       }
       
-      const [gradesRes, subjectsRes] = await Promise.all([
+      const [gradesRes, subjectsRes, examsRes] = await Promise.all([
         api.get('/grades', { headers }),
-        api.get('/settings/subjects', { headers })
+        api.get('/settings/subjects', { headers }),
+        classGradeId ? api.get(`/exams?classGrade=${classGradeId}`, { headers }) : Promise.resolve({ data: [] })
       ]);
       
       setGrades(gradesRes.data || []);
+      setStudents(studentsRes.data?.students || studentsRes.data || []);
       setCourses(subjectsRes.data || []);
+      setExams(examsRes.data || []);
     } catch (err) {
       console.error('Failed to load data:', err);
       setError(err.response?.data?.message || 'Failed to load grades');
@@ -92,10 +107,13 @@ function Grades() {
       if (schoolId) headers['x-school-id'] = schoolId;
       
       const data = { 
-        ...formData, 
+        student: formData.student,
+        subject: formData.course || null,
+        assessmentType: formData.assessmentType, 
         score: parseFloat(formData.score), 
         maxScore: parseFloat(formData.maxScore), 
-        weight: parseFloat(formData.weight)
+        weight: parseFloat(formData.weight),
+        term: formData.term
       };
       
       if (editingGrade) {
@@ -106,7 +124,7 @@ function Grades() {
       
       setShowModal(false);
       resetForm();
-      loadData();
+      loadData(teacherClassId);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to save grade');
     }
@@ -116,7 +134,7 @@ function Grades() {
     setEditingGrade(grade);
     setFormData({
       student: grade.student?._id || grade.student || '',
-      course: grade.subject?._id || grade.subject || '',
+      course: grade.subject?._id || grade.course?._id || grade.subject || grade.course || '',
       assessmentType: grade.assessmentType || 'Test',
       score: grade.score?.toString() || '',
       maxScore: grade.maxScore?.toString() || '100',
@@ -135,7 +153,7 @@ function Grades() {
       if (schoolId) headers['x-school-id'] = schoolId;
       
       await api.delete(`/grades/${id}`, { headers });
-      loadData();
+      loadData(teacherClassId);
     } catch (err) {
       alert('Failed to delete grade');
     }
@@ -143,6 +161,8 @@ function Grades() {
 
   const resetForm = () => {
     setEditingGrade(null);
+    setSelectedExam(null);
+    setStudentScores({});
     setFormData({
       student: '',
       course: '',
@@ -152,6 +172,88 @@ function Grades() {
       weight: '1',
       term: 'Term 1'
     });
+  };
+
+  const handleExamSelect = (examId) => {
+    const exam = exams.find(e => e._id === examId);
+    setSelectedExam(exam);
+    setFormData({ ...formData, maxScore: exam?.subjects?.[0]?.maxMarks || 100 });
+    
+    const existingScores = {};
+    grades
+      .filter(g => g.exam?._id === examId)
+      .forEach(g => {
+        existingScores[g.student?._id || g.student] = {
+          score: g.score,
+          maxScore: g.maxScore
+        };
+      });
+    setStudentScores(existingScores);
+  };
+
+  const handleScoreChange = (studentId, field, value) => {
+    setStudentScores(prev => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleBulkSave = async () => {
+    if (!selectedExam) {
+      alert('Please select an exam first');
+      return;
+    }
+
+    const token = localStorage.getItem('accessToken');
+    const schoolId = localStorage.getItem('currentSchoolId');
+    const headers = { 'Authorization': `Bearer ${token}` };
+    if (schoolId) headers['x-school-id'] = schoolId;
+
+    try {
+      for (const student of students) {
+        const scoreData = studentScores[student._id];
+        if (scoreData && scoreData.score !== undefined && scoreData.score !== '') {
+          const score = parseFloat(scoreData.score);
+          const maxScore = parseFloat(scoreData.maxScore) || selectedExam.subjects?.[0]?.maxMarks || 100;
+          
+          if (score > maxScore) {
+            alert(`Score for ${student.firstName} ${student.lastName} cannot exceed ${maxScore}`);
+            return;
+          }
+
+          const existingGrade = grades.find(g => 
+            (g.student?._id === student._id || g.student === student._id) && 
+            g.exam?._id === selectedExam._id
+          );
+
+          const data = {
+            student: student._id,
+            subject: selectedExam.subjects?.[0]?.subject?._id || null,
+            exam: selectedExam._id,
+            assessmentType: selectedExam.examType?.name || 'Test',
+            score: score,
+            maxScore: maxScore,
+            weight: 1,
+            term: 'Term 1'
+          };
+
+          if (existingGrade) {
+            await api.put(`/grades/${existingGrade._id}`, data, { headers });
+          } else {
+            await api.post('/grades', data, { headers });
+          }
+        }
+      }
+      alert('Grades saved successfully!');
+      setShowModal(false);
+      resetForm();
+      loadData(teacherClassId);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to save grades');
+    }
   };
 
   if (loading) {
@@ -246,105 +348,122 @@ function Grades() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">{editingGrade ? 'Edit Grade' : 'Add Grade'}</h3>
+          <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-lg font-semibold">Enter Grades for Exam</h3>
+                <p className="text-sm text-gray-500">Select an exam and enter marks for each student</p>
+              </div>
               <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded"><X size={20} /></button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
-                <select 
-                  required 
-                  value={formData.student}
-                  onChange={(e) => setFormData({ ...formData, student: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  <option value="">Select Student</option>
-                  {students.map(s => (
-                    <option key={s._id} value={s._id}>{s.firstName} {s.lastName}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subject (Optional)</label>
-                <select 
-                  value={formData.course}
-                  onChange={(e) => setFormData({ ...formData, course: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  <option value="">Select Subject</option>
-                  {courses.map(c => (
-                    <option key={c._id} value={c._id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Assessment Type</label>
-                  <select 
-                    value={formData.assessmentType}
-                    onChange={(e) => setFormData({ ...formData, assessmentType: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    {['Quiz', 'Test', 'Midterm', 'Final', 'Assignment'].map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Exam</label>
+              <select 
+                value={selectedExam?._id || ''}
+                onChange={(e) => handleExamSelect(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="">Select an Exam</option>
+                {exams.map(exam => (
+                  <option key={exam._id} value={exam._id}>
+                    {exam.name} ({exam.classGrade?.name}) - {exam.examType?.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedExam && students.length > 0 && (
+              <div className="mb-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-700">
+                    <strong>Exam:</strong> {selectedExam.name} | 
+                    <strong> Type:</strong> {selectedExam.examType?.name} | 
+                    <strong> Max Marks:</strong> {selectedExam.subjects?.[0]?.maxMarks || 100}
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Term</label>
-                  <select 
-                    value={formData.term}
-                    onChange={(e) => setFormData({ ...formData, term: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    {['Term 1', 'Term 2', 'Term 3', 'Final'].map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Score</label>
-                  <input 
-                    type="number" 
-                    required 
-                    step="0.01" 
-                    value={formData.score}
-                    onChange={(e) => setFormData({ ...formData, score: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Score</label>
-                  <input 
-                    type="number" 
-                    required 
-                    value={formData.maxScore}
-                    onChange={(e) => setFormData({ ...formData, maxScore: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight</label>
-                  <input 
-                    type="number" 
-                    step="0.1" 
-                    value={formData.weight}
-                    onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg" 
-                  />
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Roll No</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Max Marks</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Obtained Marks</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">%</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {students.map(student => {
+                        const scoreData = studentScores[student._id] || {};
+                        const score = parseFloat(scoreData.score) || 0;
+                        const maxScore = parseFloat(scoreData.maxScore) || selectedExam.subjects?.[0]?.maxMarks || 100;
+                        const percentage = maxScore > 0 ? ((score / maxScore) * 100).toFixed(1) : 0;
+                        const hasScore = scoreData.score !== undefined && scoreData.score !== '';
+                        const isInvalid = hasScore && score > maxScore;
+                        
+                        return (
+                          <tr key={student._id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium">
+                              {student.firstName} {student.lastName}
+                            </td>
+                            <td className="px-4 py-3 text-gray-600">{student.studentId || '-'}</td>
+                            <td className="px-4 py-3">
+                              <input 
+                                type="number"
+                                value={scoreData.maxScore || selectedExam.subjects?.[0]?.maxMarks || 100}
+                                onChange={(e) => handleScoreChange(student._id, 'maxScore', e.target.value)}
+                                className="w-20 px-2 py-1 border rounded text-center"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <input 
+                                type="number"
+                                value={scoreData.score || ''}
+                                onChange={(e) => handleScoreChange(student._id, 'score', e.target.value)}
+                                className={`w-24 px-2 py-1 border rounded ${isInvalid ? 'border-red-500 bg-red-50' : ''}`}
+                                step="0.01"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              {hasScore ? (
+                                <span className={`px-2 py-1 rounded text-xs ${percentage >= 60 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                  {percentage}%
+                                </span>
+                              ) : '-'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg">
-                  {editingGrade ? 'Update' : 'Create'}
-                </button>
+            )}
+
+            {selectedExam && students.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No students found in this class
               </div>
-            </form>
+            )}
+
+            {!selectedExam && (
+              <div className="text-center py-8 text-gray-500">
+                Please select an exam to enter grades
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+              <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
+              <button 
+                onClick={handleBulkSave}
+                disabled={!selectedExam || Object.keys(studentScores).length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg disabled:bg-gray-400"
+              >
+                <Check size={18} /> Save All Grades
+              </button>
+            </div>
           </div>
         </div>
       )}

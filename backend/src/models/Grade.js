@@ -4,12 +4,13 @@ const gradeSchema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
   subject: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
+  exam: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam' },
   assessmentType: { 
     type: String, 
     enum: ['Quiz', 'Test', 'Midterm', 'Final', 'Assignment', 'Project', 'Participation'],
     required: true 
   },
-  score: { type: Number, required: true, min: 0, max: 100 },
+  score: { type: Number, required: true, min: 0 },
   maxScore: { type: Number, default: 100 },
   weight: { type: Number, default: 1 },
   date: { type: Date, default: Date.now },

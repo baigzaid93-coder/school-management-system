@@ -19,6 +19,8 @@ function Exams() {
   const [selectedExam, setSelectedExam] = useState(null);
   const [editingExam, setEditingExam] = useState(null);
   const [examMarks, setExamMarks] = useState([]);
+  const [isTeacher, setIsTeacher] = useState(false);
+  const [teacherClassId, setTeacherClassId] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     examType: '',
@@ -33,9 +35,43 @@ function Exams() {
     maxMarks: 100
   });
 
-  useEffect(() => {
-    loadData();
+  useEffect(() => { 
+    checkUserRole();
   }, []);
+
+  const checkUserRole = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const schoolId = localStorage.getItem('currentSchoolId');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      if (schoolId) headers['x-school-id'] = schoolId;
+      
+      const userRes = await api.get('/auth/me', { headers });
+      const user = userRes.data;
+      const roleCode = user?.role?.code;
+      let teacherClass = null;
+      
+      if (roleCode === 'TEACHER') {
+        setIsTeacher(true);
+        try {
+          const teacherRes = await api.get('/teachers/my-profile', { headers });
+          const teacherData = teacherRes.data;
+          if (teacherData.assignedClass) {
+            const classId = teacherData.assignedClass._id || teacherData.assignedClass;
+            teacherClass = classId;
+            setTeacherClassId(classId);
+            setSelectedClass(classId);
+          }
+        } catch (err) {
+          console.error('Error loading teacher profile:', err);
+        }
+      }
+      loadData(teacherClass);
+    } catch (err) {
+      console.error('Error checking user role:', err);
+      loadData(null);
+    }
+  };
 
   useEffect(() => {
     if (selectedClass) {
@@ -43,7 +79,7 @@ function Exams() {
     }
   }, [selectedClass]);
 
-  const loadData = async () => {
+  const loadData = async (teacherClass = null) => {
     try {
       setLoading(true);
       
@@ -57,7 +93,11 @@ function Exams() {
       setExamTypes(Array.isArray(examTypesRes.data) ? examTypesRes.data : []);
       setSubjects(Array.isArray(subjectsRes.data) ? subjectsRes.data : []);
       
-      if (classesRes.data.length > 0) {
+      if (teacherClass) {
+        setSelectedClass(teacherClass);
+      } else if (isTeacher && teacherClassId) {
+        setSelectedClass(teacherClassId);
+      } else if (classesRes.data.length > 0) {
         setSelectedClass(classesRes.data[0]._id);
       }
     } catch (err) {

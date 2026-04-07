@@ -189,6 +189,7 @@ const teacherNavSections = [
     items: [
       { path: '/attendance', label: 'Take Attendance', icon: Calendar },
       { path: '/grades', label: 'Manage Grades', icon: ClipboardCheck },
+      { path: '/exams', label: 'Examinations', icon: FileText },
     ]
   },
   {
